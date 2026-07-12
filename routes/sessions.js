@@ -1,0 +1,206 @@
+const express = require('express');
+const store = require('../db/store');
+const { broadcast } = require('../lib/eventBus');
+
+const router = express.Router();
+
+const STATUSES = ['open', 'closed'];
+const MODES = ['auto', 'manual', 'social'];
+const PHASES = ['idle', 'game', 'break', 'awaiting_lineup'];
+
+function paymentRatesForSession(sessionId) {
+    return store.query(
+        `SELECT r.payment_category_id, pc.name, r.amount_cents
+         FROM session_payment_rates r JOIN payment_categories pc ON pc.id = r.payment_category_id
+         WHERE r.session_id = ? ORDER BY pc.sort_order, pc.name`,
+        [sessionId]
+    );
+}
+
+router.get('/', (req, res) => {
+    const { status } = req.query;
+    let sql = 'SELECT * FROM sessions WHERE 1=1';
+    const params = [];
+    if (status) {
+        sql += ' AND status = ?';
+        params.push(status);
+    }
+    sql += ' ORDER BY date DESC, id DESC';
+    res.json(store.query(sql, params));
+});
+
+// Must come before /:id so "open" isn't captured as an id param.
+router.get('/open', (req, res) => {
+    const session = store.queryOne(`SELECT * FROM sessions WHERE status = 'open' LIMIT 1`);
+    if (!session) return res.status(404).json({ error: 'No open session' });
+    res.json(session);
+});
+
+// The "same as usual" / "need to change something" start flow. Only one open
+// session is ever expected at a time (decided in the spec), so this refuses
+// to start a second one while one is already open - finish it first.
+router.post('/start', (req, res) => {
+    const { template_id, date, overrides } = req.body;
+    if (!template_id) return res.status(400).json({ error: 'template_id is required' });
+    if (!date) return res.status(400).json({ error: 'date is required' });
+
+    const template = store.queryOne('SELECT * FROM session_templates WHERE id = ?', [template_id]);
+    if (!template) return res.status(404).json({ error: 'Session template not found' });
+
+    const alreadyOpen = store.queryOne(`SELECT id FROM sessions WHERE status = 'open' LIMIT 1`);
+    if (alreadyOpen) {
+        return res.status(409).json({ error: 'A session is already open. Finish it before starting another.', session_id: alreadyOpen.id });
+    }
+
+    const o = overrides || {};
+    const mode = o.mode && MODES.includes(o.mode) ? o.mode : template.default_mode;
+    const max_capacity = o.max_capacity !== undefined ? o.max_capacity : template.default_max_capacity;
+    const game_minutes = o.game_minutes !== undefined ? o.game_minutes : null;
+    const break_minutes = o.break_minutes !== undefined ? o.break_minutes : null;
+
+    // court_ids override replaces the template's normal set for this session only;
+    // the template's own session_template_courts rows are never touched.
+    let courtIds;
+    if (Array.isArray(o.court_ids)) {
+        courtIds = o.court_ids;
+    } else {
+        courtIds = store.query(
+            'SELECT court_id FROM session_template_courts WHERE session_template_id = ?',
+            [template_id]
+        ).map((r) => r.court_id);
+    }
+
+    // payment_rates override replaces the template's normal prices for this
+    // session only (mirrors court_ids) - the template's own rates are never touched.
+    let paymentRates;
+    if (Array.isArray(o.payment_rates)) {
+        paymentRates = o.payment_rates.map((r) => ({ payment_category_id: r.payment_category_id, amount_cents: Math.round(r.amount_cents) || 0 }));
+    } else {
+        paymentRates = store.query(
+            'SELECT payment_category_id, amount_cents FROM session_template_payment_rates WHERE session_template_id = ?',
+            [template_id]
+        );
+    }
+
+    try {
+        const sessionId = store.insert(
+            `INSERT INTO sessions (template_id, date, label, scheduled_start_time, scheduled_end_time, location, status, mode, game_minutes, break_minutes, max_capacity, current_phase)
+             VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, 'idle')`,
+            [template_id, date, template.label, template.start_time, template.end_time, o.location ?? null,
+                mode, game_minutes, break_minutes, max_capacity]
+        );
+        for (const courtId of courtIds) {
+            store.run('INSERT INTO session_courts (session_id, court_id, in_use) VALUES (?, ?, 1)', [sessionId, courtId]);
+        }
+        for (const r of paymentRates) {
+            store.run('INSERT INTO session_payment_rates (session_id, payment_category_id, amount_cents) VALUES (?, ?, ?)', [sessionId, r.payment_category_id, r.amount_cents]);
+        }
+        store.persist();
+        broadcast('session', { session_id: sessionId });
+        const session = store.queryOne('SELECT * FROM sessions WHERE id = ?', [sessionId]);
+        const courts = store.query(
+            `SELECT sc.court_id, c.court_number, c.label FROM session_courts sc JOIN courts c ON c.id = sc.court_id WHERE sc.session_id = ? ORDER BY c.court_number`,
+            [sessionId]
+        );
+        res.status(201).json({ ...session, courts, payment_rates: paymentRatesForSession(sessionId) });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+router.get('/:id', (req, res) => {
+    const session = store.queryOne('SELECT * FROM sessions WHERE id = ?', [req.params.id]);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    res.json(session);
+});
+
+// Basic ad-hoc create (no template) - for one-off events. The template-driven
+// "same as usual / need to change something" flow is POST /sessions/start above.
+router.post('/', (req, res) => {
+    const b = req.body;
+    const errors = [];
+    if (!b.date) errors.push('date is required');
+    if (!b.mode || !MODES.includes(b.mode)) errors.push(`mode must be one of ${MODES.join(', ')}`);
+    if (errors.length) return res.status(400).json({ errors });
+    const willBeOpen = (b.status ?? 'open') === 'open';
+    if (willBeOpen) {
+        const alreadyOpen = store.queryOne(`SELECT id FROM sessions WHERE status = 'open' LIMIT 1`);
+        if (alreadyOpen) {
+            return res.status(409).json({ error: 'A session is already open. Finish it before starting another.', session_id: alreadyOpen.id });
+        }
+    }
+    try {
+        const id = store.insert(
+            `INSERT INTO sessions (template_id, date, label, scheduled_start_time, scheduled_end_time, location, status, mode, game_minutes, break_minutes, max_capacity, current_phase)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [b.template_id ?? null, b.date, b.label ?? null, b.scheduled_start_time ?? null, b.scheduled_end_time ?? null,
+                b.location ?? null, b.status ?? 'open', b.mode, b.game_minutes ?? null, b.break_minutes ?? null,
+                b.max_capacity ?? null, b.current_phase ?? 'idle']
+        );
+        if (Array.isArray(b.court_ids)) {
+            for (const courtId of b.court_ids) {
+                store.run('INSERT INTO session_courts (session_id, court_id, in_use) VALUES (?, ?, 1)', [id, courtId]);
+            }
+        }
+        if (Array.isArray(b.payment_rates)) {
+            for (const r of b.payment_rates) {
+                store.run('INSERT INTO session_payment_rates (session_id, payment_category_id, amount_cents) VALUES (?, ?, ?)',
+                    [id, r.payment_category_id, Math.round(r.amount_cents) || 0]);
+            }
+        }
+        store.persist();
+        broadcast('session', { session_id: id });
+        const session = store.queryOne('SELECT * FROM sessions WHERE id = ?', [id]);
+        const courts = store.query(
+            `SELECT sc.court_id, c.court_number, c.label FROM session_courts sc JOIN courts c ON c.id = sc.court_id WHERE sc.session_id = ? ORDER BY c.court_number`,
+            [id]
+        );
+        res.status(201).json({ ...session, courts, payment_rates: paymentRatesForSession(id) });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+router.put('/:id', (req, res) => {
+    const existing = store.queryOne('SELECT * FROM sessions WHERE id = ?', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Session not found' });
+    const merged = { ...existing, ...req.body };
+    if (!STATUSES.includes(merged.status)) return res.status(400).json({ error: `status must be one of ${STATUSES.join(', ')}` });
+    if (!MODES.includes(merged.mode)) return res.status(400).json({ error: `mode must be one of ${MODES.join(', ')}` });
+    if (!PHASES.includes(merged.current_phase)) return res.status(400).json({ error: `current_phase must be one of ${PHASES.join(', ')}` });
+    if (merged.status === 'open' && existing.status !== 'open') {
+        const alreadyOpen = store.queryOne(`SELECT id FROM sessions WHERE status = 'open' AND id != ?`, [req.params.id]);
+        if (alreadyOpen) {
+            return res.status(409).json({ error: 'A session is already open. Finish it before reopening another.', session_id: alreadyOpen.id });
+        }
+    }
+    try {
+        store.run(
+            `UPDATE sessions SET template_id=?, date=?, label=?, scheduled_start_time=?, scheduled_end_time=?, location=?, status=?, mode=?, game_minutes=?, break_minutes=?, max_capacity=?, current_phase=?, phase_started_at=?, phase_ends_at=?
+             WHERE id=?`,
+            [merged.template_id, merged.date, merged.label, merged.scheduled_start_time, merged.scheduled_end_time,
+                merged.location, merged.status, merged.mode, merged.game_minutes, merged.break_minutes, merged.max_capacity,
+                merged.current_phase, merged.phase_started_at, merged.phase_ends_at, req.params.id]
+        );
+        store.persist();
+        broadcast('session', { session_id: Number(req.params.id) });
+        res.json(store.queryOne('SELECT * FROM sessions WHERE id = ?', [req.params.id]));
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+router.get('/:id/courts', (req, res) => {
+    res.json(store.query(
+        `SELECT sc.court_id, c.court_number, c.label, sc.in_use
+         FROM session_courts sc JOIN courts c ON c.id = sc.court_id
+         WHERE sc.session_id = ? ORDER BY c.court_number`,
+        [req.params.id]
+    ));
+});
+
+router.get('/:id/payment-rates', (req, res) => {
+    res.json(paymentRatesForSession(req.params.id));
+});
+
+module.exports = router;

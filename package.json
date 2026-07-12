@@ -1,0 +1,22 @@
+{
+  "name": "game-scheduler",
+  "version": "0.1.0",
+  "description": "Adult badminton club pegboard app - check-in, court games, display screen",
+  "private": true,
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "db:init": "node db/init.js",
+    "db:seed": "node db/seed.js",
+    "db:verify": "node db/verify.js",
+    "csv:test": "node lib/csvImport.test.js",
+    "csv:sample": "node lib/csvImport.sample.js",
+    "autogen:test": "node lib/autoGenerate.test.js",
+    "report:test": "node lib/sessionReport.test.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "sql.js": "^1.11.0"
+  }
+}

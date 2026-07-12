@@ -1,0 +1,160 @@
+-- Game Scheduler (adult badminton pegboard app) schema
+-- Enums are modeled as TEXT + CHECK constraints (sql.js is plain SQLite, no native enum type).
+
+CREATE TABLE IF NOT EXISTS players (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    dob TEXT,
+    skill_level TEXT NOT NULL CHECK (skill_level IN ('A','B','C','D','E')),
+    gender TEXT,
+    membership_status TEXT NOT NULL CHECK (membership_status IN ('active','lapsed','guest')) DEFAULT 'active',
+    membership_number TEXT,
+    emergency_contact_name TEXT,
+    emergency_contact_phone TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS courts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    court_number INTEGER NOT NULL UNIQUE CHECK (court_number BETWEEN 1 AND 32),
+    label TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1))
+);
+
+-- Editable list of payment tiers (Member, Non-Member, Concession, etc.).
+-- Prices are NOT stored here - they're set per session_template (and copied
+-- into a session when started), since different session types charge
+-- different prices, not one club-wide amount.
+CREATE TABLE IF NOT EXISTS payment_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1))
+);
+
+CREATE TABLE IF NOT EXISTS session_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL,
+    day_of_week TEXT NOT NULL CHECK (day_of_week IN ('Mon','Tue','Wed','Thu','Fri','Sat','Sun')),
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    default_mode TEXT NOT NULL CHECK (default_mode IN ('auto','manual','social')),
+    default_max_capacity INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS session_template_courts (
+    session_template_id INTEGER NOT NULL REFERENCES session_templates(id),
+    court_id INTEGER NOT NULL REFERENCES courts(id),
+    PRIMARY KEY (session_template_id, court_id)
+);
+
+-- Per-template payment prices (cents), e.g. a Friday social template prices
+-- differently to a Monday competitive template. Copied into
+-- session_payment_rates when a session is started from this template.
+CREATE TABLE IF NOT EXISTS session_template_payment_rates (
+    session_template_id INTEGER NOT NULL REFERENCES session_templates(id),
+    payment_category_id INTEGER NOT NULL REFERENCES payment_categories(id),
+    amount_cents INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (session_template_id, payment_category_id)
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    template_id INTEGER REFERENCES session_templates(id),
+    date TEXT NOT NULL,
+    label TEXT,
+    scheduled_start_time TEXT,
+    scheduled_end_time TEXT,
+    location TEXT,
+    status TEXT NOT NULL CHECK (status IN ('open','closed')) DEFAULT 'open',
+    mode TEXT NOT NULL CHECK (mode IN ('auto','manual','social')),
+    game_minutes INTEGER,
+    break_minutes INTEGER,
+    max_capacity INTEGER,
+    current_phase TEXT NOT NULL CHECK (current_phase IN ('idle','game','break','awaiting_lineup')) DEFAULT 'idle',
+    phase_started_at TEXT,
+    phase_ends_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS session_courts (
+    session_id INTEGER NOT NULL REFERENCES sessions(id),
+    court_id INTEGER NOT NULL REFERENCES courts(id),
+    in_use INTEGER NOT NULL DEFAULT 1 CHECK (in_use IN (0,1)),
+    PRIMARY KEY (session_id, court_id)
+);
+
+-- Actual prices for this specific session (cents), copied from the template
+-- at start time and editable for that night only (mirrors session_courts).
+CREATE TABLE IF NOT EXISTS session_payment_rates (
+    session_id INTEGER NOT NULL REFERENCES sessions(id),
+    payment_category_id INTEGER NOT NULL REFERENCES payment_categories(id),
+    amount_cents INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (session_id, payment_category_id)
+);
+
+CREATE TABLE IF NOT EXISTS attendance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL REFERENCES sessions(id),
+    player_id INTEGER NOT NULL REFERENCES players(id),
+    checked_in_at TEXT NOT NULL DEFAULT (datetime('now')),
+    state TEXT NOT NULL CHECK (state IN ('checked_in','here_today','playing','left')) DEFAULT 'checked_in',
+    left_reason TEXT CHECK (left_reason IN ('no-show','departed','injured','session_ended','removed')),
+    payment_category_id INTEGER REFERENCES payment_categories(id),
+    payment_amount_cents INTEGER,
+    payment_note TEXT,
+    first_time INTEGER NOT NULL DEFAULT 0 CHECK (first_time IN (0,1))
+);
+
+CREATE TABLE IF NOT EXISTS games (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL REFERENCES sessions(id),
+    court_id INTEGER NOT NULL REFERENCES courts(id),
+    round_number INTEGER NOT NULL,
+    format TEXT NOT NULL CHECK (format IN ('singles','doubles')),
+    mode TEXT NOT NULL CHECK (mode IN ('auto','manual')),
+    status TEXT NOT NULL CHECK (status IN ('staged','active','completed')) DEFAULT 'staged',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS game_players (
+    game_id INTEGER NOT NULL REFERENCES games(id),
+    player_id INTEGER NOT NULL REFERENCES players(id),
+    side INTEGER NOT NULL CHECK (side IN (1,2)),
+    skill_level_at_time TEXT NOT NULL CHECK (skill_level_at_time IN ('A','B','C','D','E')),
+    PRIMARY KEY (game_id, player_id)
+);
+
+CREATE TABLE IF NOT EXISTS pairing_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_a_id INTEGER NOT NULL REFERENCES players(id),
+    player_b_id INTEGER NOT NULL REFERENCES players(id),
+    rule_type TEXT NOT NULL CHECK (rule_type IN ('prefer','avoid')),
+    scope TEXT NOT NULL CHECK (scope IN ('permanent','session_only')) DEFAULT 'permanent'
+);
+
+CREATE TABLE IF NOT EXISTS club_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    club_name TEXT NOT NULL DEFAULT 'My Badminton Club',
+    default_game_minutes INTEGER NOT NULL DEFAULT 15,
+    default_break_minutes INTEGER NOT NULL DEFAULT 3,
+    max_capacity INTEGER,
+    square_enabled INTEGER NOT NULL DEFAULT 0 CHECK (square_enabled IN (0,1)),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS skill_compatibility (
+    skill_a TEXT NOT NULL CHECK (skill_a IN ('A','B','C','D','E')),
+    skill_b TEXT NOT NULL CHECK (skill_b IN ('A','B','C','D','E')),
+    allowed INTEGER NOT NULL DEFAULT 1 CHECK (allowed IN (0,1)),
+    PRIMARY KEY (skill_a, skill_b)
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_session ON attendance(session_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_player ON attendance(player_id);
+CREATE INDEX IF NOT EXISTS idx_games_session_round ON games(session_id, round_number);
+CREATE INDEX IF NOT EXISTS idx_game_players_player ON game_players(player_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date);

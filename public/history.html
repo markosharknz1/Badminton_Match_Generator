@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>History - Game Scheduler</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="app-header">
+    <h1 id="club-name">Game Scheduler</h1>
+    <nav class="app-nav">
+        <a href="/checkin.html">Check-in</a>
+        <a href="/manage.html">Rounds</a>
+        <a href="/display.html" target="_blank">Display</a>
+        <a href="/club.html">Club</a>
+        <a href="/history.html" class="active">History</a>
+    </nav>
+    <div class="session-meta">Session history &amp; audit</div>
+</header>
+
+<main>
+    <div id="error-banner" class="error-banner" style="display:none;"></div>
+
+    <!-- Landing: list of sessions + player lookup -->
+    <section id="landing-view">
+        <div class="panel">
+            <h2>Look up a player's history</h2>
+            <p class="muted">See every game a player has appeared in, with the grade they were officially playing at that night.</p>
+            <div class="filter-bar">
+                <div class="field player-search-wrap" style="flex:2;">
+                    <label>Player</label>
+                    <input type="text" id="player-search" placeholder="Type a name..." autocomplete="off">
+                    <div class="player-search-results" id="player-search-results"></div>
+                </div>
+                <div class="field"><label>From</label><input type="date" id="filter-from"></div>
+                <div class="field"><label>To</label><input type="date" id="filter-to"></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Export session trend</h2>
+            <p class="muted">Download one row per session as a real Excel file - headcount, peak concurrent on-site, rounds, and membership breakdown - to chart growth over time. Uses the same date range set above (leave blank for all sessions).</p>
+            <div class="filter-bar">
+                <button id="report-preview">Preview</button>
+                <button class="primary" id="report-download">Download .xlsx</button>
+            </div>
+            <div id="report-preview-wrap" style="display:none; overflow-x:auto;">
+                <table class="history-table" id="report-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Session</th><th class="num">Unique</th><th class="num">Peak on-site</th>
+                            <th class="num">Rounds</th><th class="num">Active</th><th class="num">Lapsed</th><th class="num">Guests</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>All sessions</h2>
+            <table class="history-table" id="sessions-table">
+                <thead>
+                    <tr>
+                        <th>Date</th><th>Session</th><th>Mode</th>
+                        <th class="num">Checked in</th><th class="num">Rounds</th><th class="num">Games</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Single session detail -->
+    <section id="session-view" style="display:none;">
+        <div class="breadcrumb"><a id="back-from-session">&larr; All sessions</a></div>
+        <div class="panel">
+            <h2 id="session-title"></h2>
+            <div id="session-rounds"></div>
+        </div>
+    </section>
+
+    <!-- Single player history -->
+    <section id="player-view" style="display:none;">
+        <div class="breadcrumb"><a id="back-from-player">&larr; All sessions</a></div>
+        <div class="panel">
+            <h2 id="player-title"></h2>
+            <p class="muted" id="player-subtitle"></p>
+            <table class="history-table" id="player-games-table">
+                <thead>
+                    <tr>
+                        <th>Date</th><th>Session</th><th class="num">Round</th><th class="num">Court</th>
+                        <th class="num">Grade then</th><th>Partner</th><th>Opponents</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<script src="/events.js"></script>
+<script src="/history.js"></script>
+</body>
+</html>

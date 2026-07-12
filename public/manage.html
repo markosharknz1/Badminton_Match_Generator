@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rounds - Game Scheduler</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="app-header">
+    <h1 id="club-name">Game Scheduler</h1>
+    <nav class="app-nav">
+        <a href="/checkin.html">Check-in</a>
+        <a href="/manage.html" class="active">Rounds</a>
+        <a href="/display.html" target="_blank">Display</a>
+        <a href="/club.html">Club</a>
+        <a href="/history.html">History</a>
+    </nav>
+    <div class="session-meta" id="session-meta"></div>
+</header>
+
+<main class="wide">
+    <div id="error-banner" class="error-banner" style="display:none;"></div>
+
+    <section id="no-session-panel" class="panel" style="display:none;">
+        <h2>No session open</h2>
+        <p class="muted">Start today's session from the <a class="textlink" href="/checkin.html">check-in screen</a> first.</p>
+    </section>
+
+    <section id="social-panel" class="panel" style="display:none;">
+        <h2>Social session - no rounds to manage</h2>
+        <p class="muted">This session is in social mode: just check-in and payment, no court rotation. Use the <a class="textlink" href="/checkin.html">check-in screen</a> to record players and payment.</p>
+    </section>
+
+    <section id="manage-panel" style="display:none;">
+        <div class="panel">
+            <h2>Round status</h2>
+            <div class="round-controls">
+                <span class="phase-badge" id="phase-badge">idle</span>
+                <span class="muted" id="phase-detail"></span>
+                <button class="primary" id="round-action-btn"></button>
+            </div>
+        </div>
+
+        <div class="panel" id="active-games-panel" style="display:none;">
+            <h2>Currently on court - round <span id="active-round-number"></span></h2>
+            <div class="active-games-grid" id="active-games-grid"></div>
+        </div>
+
+        <div class="panel">
+            <div class="builder-header">
+                <h2>
+                    Build round
+                    <span class="round-stepper">
+                        <button class="small" id="round-minus">-</button>
+                        <strong id="build-round-number">-</strong>
+                        <button class="small" id="round-plus">+</button>
+                    </span>
+                </h2>
+                <button class="primary" id="auto-generate-btn">Auto-generate round</button>
+            </div>
+            <p class="muted">Drag a player from the pool onto a side, or use Auto-generate to fill any empty courts automatically. Doubles needs 2 per side; singles needs 1 per side.</p>
+
+            <div class="builder-layout">
+                <div class="courts-grid" id="courts-grid"></div>
+                <div class="player-pool-sidebar">
+                    <h3>Player pool <span class="count-pill" id="pool-count">0</span></h3>
+                    <div class="player-pool-list" id="player-pool"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script src="/events.js"></script>
+<script src="/manage.js"></script>
+</body>
+</html>

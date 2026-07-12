@@ -1,0 +1,14 @@
+const { openDb, applySchema, saveDb, DB_PATH } = require('./index');
+
+async function main() {
+    const db = await openDb();
+    applySchema(db);
+    saveDb(db);
+    db.close();
+    console.log(`Schema applied to ${DB_PATH}`);
+}
+
+main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+});

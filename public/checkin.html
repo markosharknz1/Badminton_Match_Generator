@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Check-in - Game Scheduler</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="app-header">
+    <h1 id="club-name">Game Scheduler</h1>
+    <nav class="app-nav">
+        <a href="/checkin.html" class="active">Check-in</a>
+        <a href="/manage.html">Rounds</a>
+        <a href="/display.html" target="_blank">Display</a>
+        <a href="/club.html">Club</a>
+        <a href="/history.html">History</a>
+    </nav>
+    <div class="session-meta" id="session-meta"></div>
+</header>
+
+<main>
+    <div id="error-banner" class="error-banner" style="display:none;"></div>
+
+    <!-- Shown when there is no open session yet -->
+    <section id="start-session-panel" class="panel" style="display:none;">
+        <h2>Start today's session</h2>
+        <div id="start-session-body"></div>
+    </section>
+
+    <!-- Shown once a session is open -->
+    <section id="checkin-panel" style="display:none;">
+        <div class="two-col">
+            <div class="panel">
+                <h2>Check in a player <span class="count-pill" id="available-count">0</span></h2>
+                <div class="field">
+                    <label for="player-search">Search by name</label>
+                    <input type="text" id="player-search" placeholder="Start typing a name..." autocomplete="off">
+                </div>
+                <p class="muted table-hint">Double-click a player to check them in.</p>
+                <div class="roster-table-wrap">
+                    <table class="roster-table">
+                        <thead><tr><th>Name</th><th>Skill</th><th>Status</th></tr></thead>
+                        <tbody id="available-tbody"></tbody>
+                    </table>
+                </div>
+                <p><a class="textlink" id="show-add-player">+ Add a new player and check them in</a></p>
+                <div id="add-player-form" style="display:none;">
+                    <div class="row">
+                        <div class="field"><label>First name</label><input type="text" id="np-first"></div>
+                        <div class="field"><label>Last name</label><input type="text" id="np-last"></div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label>Skill level</label>
+                            <select id="np-skill">
+                                <option value="A">A</option><option value="B">B</option>
+                                <option value="C" selected>C</option><option value="D">D</option><option value="E">E</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Gender</label>
+                            <select id="np-gender">
+                                <option value="">-</option><option value="F">F</option><option value="M">M</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Membership</label>
+                            <select id="np-status">
+                                <option value="guest" selected>Guest</option>
+                                <option value="active">Active member</option>
+                                <option value="lapsed">Lapsed member</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="primary" id="np-submit">Add and check in</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Here today <span class="count-pill" id="here-count">0</span></h2>
+                <p class="muted table-hint" id="here-hint">Double-click a player to remove them from today.</p>
+                <div class="roster-table-wrap">
+                    <table class="roster-table">
+                        <thead><tr><th>Name</th><th>Skill</th><th>Status</th><th id="payment-th" style="display:none;">Payment</th></tr></thead>
+                        <tbody id="here-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div id="payment-modal-backdrop" class="modal-backdrop" style="display:none;">
+    <div class="modal">
+        <h3>Record payment - <span id="pm-player-name"></span></h3>
+        <div class="field">
+            <label>Category</label>
+            <select id="pm-category"></select>
+        </div>
+        <div class="row">
+            <div class="field"><label>Amount ($)</label><input type="number" id="pm-amount" min="0" step="0.01"></div>
+            <div class="field checkbox-row" style="align-self:flex-end; padding-bottom:10px;">
+                <input type="checkbox" id="pm-first-time">
+                <label for="pm-first-time">First time visitor</label>
+            </div>
+        </div>
+        <div class="field">
+            <label>Note</label>
+            <input type="text" id="pm-note" placeholder="e.g. Coach - playing, Admin - playing">
+        </div>
+        <p class="muted" id="pm-hint" style="display:none;">A note is recommended when the amount is $0 - it explains why no payment was taken.</p>
+        <div class="row" style="justify-content: flex-end;">
+            <button id="pm-cancel">Cancel</button>
+            <button class="primary" id="pm-save">Save payment</button>
+        </div>
+    </div>
+</div>
+
+<script src="/events.js"></script>
+<script src="/checkin.js"></script>
+</body>
+</html>

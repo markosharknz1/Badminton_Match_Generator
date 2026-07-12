@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Display - Game Scheduler</title>
+<style>
+/* Kiosk-only styling: dark, large type, readable from across a hall.
+   Deliberately not sharing style.css - this screen has no controls and a
+   completely different visual job to the staff pages. */
+:root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --border: #334155;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --game: #4ade80;
+    --break: #fbbf24;
+    --waiting: #f87171;
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2vmin;
+}
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1vmin;
+    margin-bottom: 2vmin;
+}
+h1 { font-size: 3.4vmin; margin: 0; }
+.session-label { color: var(--muted); font-size: 2.2vmin; }
+.timer-block { text-align: right; }
+.phase-label {
+    font-size: 2vmin;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+}
+.phase-label.game { color: var(--game); }
+.phase-label.break { color: var(--break); }
+.phase-label.awaiting_lineup { color: var(--waiting); }
+#countdown {
+    font-size: 7vmin;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+#countdown.urgent { color: var(--waiting); }
+.courts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(30vmin, 1fr));
+    gap: 1.6vmin;
+    margin-bottom: 2vmin;
+}
+.court {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 1.2vmin;
+    padding: 1.6vmin;
+}
+.court h2 {
+    margin: 0 0 1vmin;
+    font-size: 2.6vmin;
+    color: var(--accent);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+.court h2 .format { font-size: 1.7vmin; color: var(--muted); font-weight: 400; }
+.court .team { font-size: 2.2vmin; margin: 0.4vmin 0; }
+.court .vs { color: var(--muted); font-size: 1.7vmin; text-transform: uppercase; margin: 0.4vmin 0; }
+.court.free { display: flex; align-items: center; justify-content: center; min-height: 16vmin; }
+.court.free span { color: var(--muted); font-size: 2.6vmin; text-transform: uppercase; letter-spacing: 0.1em; }
+.skill {
+    display: inline-block;
+    font-size: 1.5vmin;
+    font-weight: 700;
+    padding: 0.1vmin 0.8vmin;
+    border-radius: 99px;
+    background: var(--border);
+    color: var(--muted);
+    vertical-align: middle;
+    margin-left: 0.5vmin;
+}
+.waiting-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 1.2vmin;
+    padding: 1.6vmin;
+}
+.waiting-panel h2 { margin: 0 0 1.2vmin; font-size: 2.4vmin; }
+.waiting-panel h2 .count { color: var(--muted); font-weight: 400; }
+.waiting-list { display: flex; flex-wrap: wrap; gap: 1vmin; }
+.waiting-player {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.9vmin;
+    padding: 0.9vmin 1.4vmin;
+    font-size: 2vmin;
+    display: flex;
+    align-items: center;
+    gap: 0.8vmin;
+}
+.sit-out {
+    background: var(--waiting);
+    color: var(--bg);
+    font-size: 1.5vmin;
+    font-weight: 800;
+    border-radius: 99px;
+    padding: 0.1vmin 0.9vmin;
+    white-space: nowrap;
+}
+#idle-screen {
+    display: none;
+    text-align: center;
+    padding-top: 30vh;
+}
+#idle-screen h1 { font-size: 5vmin; }
+#idle-screen p { color: var(--muted); font-size: 2.4vmin; }
+</style>
+</head>
+<body>
+<div id="idle-screen">
+    <h1 id="idle-club-name">Game Scheduler</h1>
+    <p>No session in progress</p>
+</div>
+
+<div id="live-screen" style="display:none;">
+    <header>
+        <div>
+            <h1 id="club-name">Game Scheduler</h1>
+            <div class="session-label" id="session-label"></div>
+        </div>
+        <div class="timer-block">
+            <div class="phase-label" id="phase-label"></div>
+            <div id="countdown"></div>
+        </div>
+    </header>
+
+    <div class="courts" id="courts"></div>
+
+    <div class="waiting-panel">
+        <h2>Waiting <span class="count" id="waiting-count"></span></h2>
+        <div class="waiting-list" id="waiting-list"></div>
+    </div>
+</div>
+
+<script src="/events.js"></script>
+<script src="/display.js"></script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Club - Game Scheduler</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="app-header">
+    <h1 id="club-name">Game Scheduler</h1>
+    <nav class="app-nav">
+        <a href="/checkin.html">Check-in</a>
+        <a href="/manage.html">Rounds</a>
+        <a href="/display.html" target="_blank">Display</a>
+        <a href="/club.html" class="active">Club</a>
+        <a href="/history.html">History</a>
+    </nav>
+    <div class="session-meta">Club management</div>
+</header>
+
+<main>
+    <div id="error-banner" class="error-banner" style="display:none;"></div>
+
+    <section class="panel">
+        <h2>Club settings</h2>
+        <div class="row">
+            <div class="field">
+                <label>Club name</label>
+                <input type="text" id="cs-name">
+            </div>
+            <div class="field">
+                <label>Default game length (minutes)</label>
+                <input type="number" id="cs-game" min="1">
+            </div>
+            <div class="field">
+                <label>Default break length (minutes)</label>
+                <input type="number" id="cs-break" min="0">
+            </div>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Comfortable rotation guideline (players, optional - informational only, never blocks check-in)</label>
+                <input type="number" id="cs-capacity" min="0" placeholder="No guideline">
+            </div>
+            <div class="field checkbox-row" style="padding-top: 22px;">
+                <input type="checkbox" id="cs-square">
+                <label for="cs-square">Track payments (Member/Non-Member/etc. + amounts) - adds a Payment column at check-in</label>
+            </div>
+        </div>
+        <button class="primary" id="cs-save">Save settings</button><span class="save-note" id="cs-saved"></span>
+    </section>
+
+    <section class="panel">
+        <h2>Courts</h2>
+        <p class="muted">Click a court number to toggle whether it exists at your venue. Numbers are the venue's shared convention (1-32) - only mark the courts your club actually uses.</p>
+        <div class="court-roster" id="court-roster"></div>
+    </section>
+
+    <section class="panel">
+        <h2>Skill compatibility</h2>
+        <p class="muted">Tick the grade combinations that can be matched together (as partners or opponents). The grid is symmetric - ticking A x C also ticks C x A.</p>
+        <table class="matrix-table" id="matrix"></table>
+        <br>
+        <button class="primary" id="matrix-save">Save matrix</button><span class="save-note" id="matrix-saved"></span>
+    </section>
+
+    <section class="panel">
+        <h2>Payment categories</h2>
+        <p class="muted">Pricing tiers used across session templates (e.g. Member, Non-Member, Concession). Prices themselves are set per session template below, not here - different session types can charge different amounts. Configuring these is safe even before turning payment tracking on above - it only shows up at check-in once "Track payments" is ticked.</p>
+        <table class="history-table" id="payment-categories-table">
+            <thead><tr><th>Name</th><th class="num">Order</th><th class="num">Active</th><th></th></tr></thead>
+            <tbody id="payment-categories-tbody"></tbody>
+        </table>
+        <div class="row" style="margin-top:12px;">
+            <div class="field"><label>New category name</label><input type="text" id="pc-new-name" placeholder="e.g. Junior"></div>
+            <div class="field" style="align-self:flex-end;"><button class="primary" id="pc-add">+ Add category</button></div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Session templates</h2>
+        <p class="muted">What "normally" happens on each day. Starting a session copies these defaults; changing a template never affects sessions already run.</p>
+        <div id="template-list"></div>
+        <button id="template-add">+ Add template</button>
+    </section>
+
+    <section class="panel">
+        <h2>Import players from CSV</h2>
+        <p class="muted">Columns: first_name, last_name, email, phone, dob, skill_level, gender, membership_number. Existing players are never overwritten - exact matches are skipped and near-matches flagged for review.</p>
+        <div class="field">
+            <label>CSV file</label>
+            <input type="file" id="import-file" accept=".csv,text/csv">
+        </div>
+        <div class="field">
+            <label>Or paste CSV text</label>
+            <textarea id="import-text" placeholder="first_name,last_name,email,..."></textarea>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Membership status for all imported players</label>
+                <select id="import-status">
+                    <option value="active">Active member</option>
+                    <option value="lapsed">Lapsed member</option>
+                    <option value="guest">Guest</option>
+                </select>
+            </div>
+            <div class="field" style="align-self: flex-end;">
+                <button class="primary" id="import-preview">Preview import</button>
+            </div>
+        </div>
+        <div id="import-result" class="import-buckets"></div>
+    </section>
+</main>
+
+<script src="/events.js"></script>
+<script src="/club.js"></script>
+</body>
+</html>

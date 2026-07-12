@@ -1,0 +1,4 @@
+node_modules/
+*.log
+game_scheduler.db
+exports/
