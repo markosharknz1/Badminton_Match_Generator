@@ -63,6 +63,8 @@ function render() {
     renderWaiting();
 }
 
+const WARNING_ZONE_SECONDS = 120; // "2 minutes left" threshold during a match
+
 function renderPhase() {
     const phase = displayData.session.current_phase;
     const label = $('#phase-label');
@@ -74,27 +76,62 @@ function renderPhase() {
     tickCountdown();
 }
 
-function tickCountdown() {
-    const el = $('#countdown');
-    const phase = displayData?.session.current_phase;
-    const endsAt = displayData?.session.phase_ends_at;
-    if (!displayData || !endsAt || (phase !== 'game' && phase !== 'break')) {
-        el.textContent = '';
-        return;
-    }
-    const remainingMs = parseUtc(endsAt) - Date.now();
-    if (remainingMs <= 0) {
-        // Timer hit zero; the server scheduler transitions within a few
-        // seconds and an SSE event will re-render. Show 0:00, never negative.
-        el.textContent = '0:00';
-        el.className = 'urgent';
-        return;
-    }
-    const totalSeconds = Math.floor(remainingMs / 1000);
+function formatMMSS(totalSeconds) {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
-    el.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
-    el.className = totalSeconds <= 60 ? 'urgent' : '';
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+function tickClock() {
+    const el = $('#wall-clock');
+    if (!el) return;
+    el.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+}
+
+function tickCountdown() {
+    const el = $('#countdown');
+    const banner = $('#warning-banner');
+    const nextLine = $('#next-match-line');
+    const session = displayData?.session;
+    const phase = session?.current_phase;
+    const endsAt = session?.phase_ends_at;
+
+    if (!displayData || !endsAt || (phase !== 'game' && phase !== 'break')) {
+        el.textContent = '';
+        el.className = '';
+        banner.style.display = 'none';
+        nextLine.style.display = 'none';
+        return;
+    }
+
+    const remainingMs = parseUtc(endsAt) - Date.now();
+    const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+    el.textContent = formatMMSS(remainingSeconds);
+
+    if (phase === 'game') {
+        // Last 2 minutes of a match: flag it clearly and show when the NEXT
+        // match will actually start (remaining time + the break after it),
+        // not just when this one ends.
+        const inWarningZone = remainingSeconds <= WARNING_ZONE_SECONDS;
+        el.className = inWarningZone ? 'urgent' : '';
+        banner.style.display = inWarningZone ? 'block' : 'none';
+        banner.textContent = remainingSeconds > 0 ? '2 minutes left - finish up!' : "Time! Come off court.";
+        if (inWarningZone) {
+            const breakSeconds = (session.break_minutes ?? 3) * 60;
+            nextLine.style.display = 'block';
+            nextLine.innerHTML = `Next match starts in <strong>${formatMMSS(remainingSeconds + breakSeconds)}</strong>`;
+        } else {
+            nextLine.style.display = 'none';
+        }
+    } else {
+        // Break: this IS the "get off the court" countdown - make the last
+        // 15 seconds impossible to miss.
+        banner.style.display = 'none';
+        nextLine.style.display = 'none';
+        if (remainingSeconds <= 15) el.className = 'clear-now';
+        else if (remainingSeconds <= 60) el.className = 'urgent';
+        else el.className = '';
+    }
 }
 
 function renderCourts() {
@@ -141,7 +178,11 @@ subscribeToEvents((msg) => {
     }
 });
 
-countdownHandle = setInterval(tickCountdown, 1000);
+countdownHandle = setInterval(() => {
+    tickClock();
+    tickCountdown();
+}, 1000);
+tickClock();
 
 api('/api/club-settings')
     .then((club) => { $('#idle-club-name').textContent = club.club_name; })

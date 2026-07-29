@@ -39,6 +39,12 @@ header {
 h1 { font-size: 3.4vmin; margin: 0; }
 .session-label { color: var(--muted); font-size: 2.2vmin; }
 .timer-block { text-align: right; }
+.wall-clock {
+    font-size: 2vmin;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 0.6vmin;
+}
 .phase-label {
     font-size: 2vmin;
     text-transform: uppercase;
@@ -55,6 +61,39 @@ h1 { font-size: 3.4vmin; margin: 0; }
     line-height: 1;
 }
 #countdown.urgent { color: var(--waiting); }
+#countdown.clear-now {
+    color: var(--bg);
+    background: var(--waiting);
+    border-radius: 1vmin;
+    padding: 0 0.4vmin;
+    animation: pulse-banner 0.6s ease-in-out infinite;
+}
+.next-match-line {
+    font-size: 1.9vmin;
+    color: var(--muted);
+    margin-top: 0.8vmin;
+}
+.next-match-line strong {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+.warning-banner {
+    background: var(--waiting);
+    color: var(--bg);
+    text-align: center;
+    font-size: 2.8vmin;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 1.2vmin;
+    border-radius: 1vmin;
+    margin-bottom: 1.6vmin;
+    animation: pulse-banner 1s ease-in-out infinite;
+}
+@keyframes pulse-banner {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
 .courts {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(30vmin, 1fr));
@@ -141,15 +180,19 @@ h1 { font-size: 3.4vmin; margin: 0; }
             <div class="session-label" id="session-label"></div>
         </div>
         <div class="timer-block">
+            <div class="wall-clock" id="wall-clock"></div>
             <div class="phase-label" id="phase-label"></div>
             <div id="countdown"></div>
+            <div class="next-match-line" id="next-match-line" style="display:none;"></div>
         </div>
     </header>
+
+    <div class="warning-banner" id="warning-banner" style="display:none;"></div>
 
     <div class="courts" id="courts"></div>
 
     <div class="waiting-panel">
-        <h2>Waiting <span class="count" id="waiting-count"></span></h2>
+        <h2>Resting <span class="count" id="waiting-count"></span></h2>
         <div class="waiting-list" id="waiting-list"></div>
     </div>
 </div>

@@ -54,7 +54,8 @@ router.get('/sessions/:id/display', (req, res) => {
     const session = store.queryOne('SELECT * FROM sessions WHERE id = ?', [sessionId]);
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
-    const club = store.queryOne('SELECT club_name FROM club_settings WHERE id = 1');
+    const club = store.queryOne('SELECT club_name, default_break_minutes FROM club_settings WHERE id = 1');
+    const breakMinutes = session.break_minutes ?? (club ? club.default_break_minutes : 3);
 
     const courts = store.query(
         `SELECT sc.court_id, c.court_number, c.label
@@ -97,6 +98,7 @@ router.get('/sessions/:id/display', (req, res) => {
             current_phase: session.current_phase,
             phase_started_at: session.phase_started_at,
             phase_ends_at: session.phase_ends_at,
+            break_minutes: breakMinutes,
         },
         courts,
         active_games: activeGames,
