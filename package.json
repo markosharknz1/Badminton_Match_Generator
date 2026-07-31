@@ -15,8 +15,8 @@
     "report:test": "node lib/sessionReport.test.js"
   },
   "dependencies": {
-    "exceljs": "^4.4.0",
-    "express": "^5.2.1",
-    "sql.js": "^1.11.0"
+    "exceljs": "4.4.0",
+    "express": "5.2.1",
+    "sql.js": "1.14.1"
   }
 }
