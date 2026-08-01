@@ -19,6 +19,17 @@ if errorlevel 1 (
 for /f "delims=" %%v in ('node --version') do echo Found Node.js %%v
 echo.
 
+set "EDGE_FOUND=0"
+if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" set "EDGE_FOUND=1"
+if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" set "EDGE_FOUND=1"
+if "%EDGE_FOUND%"=="1" (
+    echo Found Microsoft Edge - Run.bat will open the app in its own window.
+) else (
+    echo Microsoft Edge was not found - Run.bat will fall back to opening your
+    echo default browser instead ^(everything still works, just as a normal tab^).
+)
+echo.
+
 echo Setting up the database - safe to run even if one already exists, this never deletes data...
 node db\init.js
 if errorlevel 1 (
@@ -39,6 +50,8 @@ if /I "%SEED%"=="y" (
 
 echo.
 echo ============================================
-echo  Setup complete. Double-click Run.bat to start the app.
+echo  Setup complete. Double-click Run.bat to start the app -
+echo  it opens automatically in its own window, no typing a
+echo  web address required.
 echo ============================================
 pause

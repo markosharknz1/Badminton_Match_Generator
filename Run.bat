@@ -10,12 +10,4 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Starting Game Scheduler...
-echo Leave this window open for the whole session - closing it stops the server
-echo and freezes any live match timers.
-echo.
-node server.js
-
-echo.
-echo The server has stopped.
-pause
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0run.ps1"
