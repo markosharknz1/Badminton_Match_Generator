@@ -24,6 +24,20 @@ is untouched and out of scope; don't read or modify it.
 
 ## How to run it
 
+**Double-click `Run.bat`** in the project folder. It opens the app
+automatically in its own chromeless Edge window (no address bar/tabs — looks
+like an installed app, not a browser tab), falling back to the default
+browser if Edge isn't present. The server itself runs in a separate,
+clearly-titled console window ("CLOSE THIS WINDOW TO STOP THE APP") — that
+window is the one reliable way to stop it; closing the Edge app window on
+its own does *not* stop the server (see the design-decisions section for why).
+
+First time on a machine, double-click **`Install.bat`** first — checks for
+Node.js and Edge, applies the DB schema (idempotent, safe to re-run), and
+optionally offers to load demo data (default is No, so it's safe to re-run
+later without wiping real club data).
+
+Manual equivalent (what the scripts wrap), useful when debugging:
 ```
 cd C:\Claude\Game_Scheduler
 node server.js
@@ -31,9 +45,8 @@ node server.js
 Open **http://localhost:4000** (port changed from the original 3000 — user
 asked for a non-3000 port; override anytime with `set PORT=xxxx`).
 
-Leave the terminal window open — closing it stops the server, which freezes
-session timers mid-session (by design, per spec; the UI should eventually
-warn about this but currently doesn't visibly).
+Leave that window open — closing it stops the server, which freezes session
+timers mid-session (by design, per spec).
 
 To reseed fresh demo data at any time (wipes and rebuilds all tables):
 ```
@@ -54,9 +67,30 @@ npm run report:test    # Excel export / peak-concurrent metric (7 tests)
 ## Repository
 
 Pushed to GitHub: **https://github.com/markosharknz1/Badminton_Match_Generator**
-(private). One commit so far (the whole build). `.gitignore` excludes
-`node_modules/`, `*.log`, `game_scheduler.db`, `exports/`. Push new commits
-yourself, or ask Claude to.
+(private). `.gitignore` excludes `*.log`, `game_scheduler.db`, `exports/` —
+**`node_modules/` is deliberately committed** (see design decisions below),
+so this is one of the rare Node projects where you should *not* gitignore it.
+Push new commits yourself, or ask Claude to.
+
+### Working on this remotely via claude.ai (not just this local Claude Code setup)
+
+The repo is already set up for this - connect it once via claude.ai's
+GitHub connector (Settings → Connectors → GitHub, authorize, pick this
+repo), then a claude.ai chat can read/edit/commit to it directly.
+
+Two things to know before doing this:
+1. **Read this whole file first** in that remote session - it's written
+   for exactly this purpose (a fresh session with no memory of the build).
+2. **A plain claude.ai chat almost certainly can't run/test Node code the
+   way Claude Code does here** (no persistent server, no real browser to
+   click through). Treat remote edits as *proposed* changes: `git pull`
+   them locally afterward and actually run the app (or ask Claude Code to)
+   before trusting them - this project's whole history so far has been
+   "verify live before calling it done" (see the testing pattern section),
+   and that discipline doesn't carry over automatically to a chat session
+   that can't execute the code. Conversely, if you make local changes in
+   Claude Code, `git push` before switching to a remote session, and
+   `git pull` before resuming locally, so the two don't diverge.
 
 ## Build status — all done
 
@@ -83,6 +117,9 @@ requests after the initial build.
 | — | **Follow-on: payment tracking made optional**, gated by `club_settings.square_enabled` toggle | ✅ |
 | — | **Follow-on: port changed** from 3000 default to 4000 default | ✅ |
 | — | **Follow-on: pushed to GitHub** (private repo) | ✅ |
+| — | **Follow-on: Display screen — wall clock, 2-minute warning banner, combined "next match starts in" countdown (remaining + break), escalating break-phase urgency styling** | ✅ |
+| — | **Follow-on: vendored `node_modules` + pinned exact dependency versions** (no cloud/npm-registry dependency at install time, ever) | ✅ |
+| — | **Follow-on: `Install.bat` / `Run.bat` / `run.ps1`** — double-click setup, and double-click launch that opens the app in its own chromeless window automatically | ✅ |
 
 Every feature above was verified end-to-end (curl for API correctness, then
 live in a browser via the preview tools) before being marked done. Two real
@@ -108,13 +145,18 @@ lib/
 routes/               - one file per resource, thin Express handlers over db/store.js
 public/
   checkin.html/.js    - check-in screen (also hosts payment recording modal)
-  manage.html/.js     - "Rounds" screen (round controls + game builder + payment-rate-aware? no)
-  display.html/.js    - kiosk display
+  manage.html/.js     - "Rounds" screen (round status/controls + drag-drop game builder)
+  display.html/.js    - kiosk display (wall clock, countdowns, warning banner - own inline styles)
   club.html/.js       - club settings, courts, skill matrix, payment categories, templates, CSV import
   history.html/.js    - session history + Excel export UI
   events.js           - shared `subscribeToEvents()` SSE client helper
-  style.css           - one shared stylesheet for all staff pages (display.html has its own inline styles)
+  style.css           - one shared stylesheet for the staff pages (checkin/manage/club/history)
 server.js              - wires all routers, binds 0.0.0.0:4000, starts scheduler
+Install.bat             - double-click: check Node/Edge, apply schema, optional demo seed
+Run.bat                 - double-click: launches run.ps1
+run.ps1                 - starts the server in its own titled console window, waits for it to
+                           be ready, opens a chromeless Edge app-mode window pointed at it
+node_modules/           - committed on purpose, not gitignored (see decisions below)
 ```
 
 ## Key design decisions already made (don't re-litigate these)
@@ -160,6 +202,31 @@ server.js              - wires all routers, binds 0.0.0.0:4000, starts scheduler
   them from any *staged* (not yet played) future-round games — active/
   completed games are never touched, preserving the audit trail. This cascade
   lives in `routes/attendance.js`'s PUT handler.
+- **`node_modules` is committed to git, not gitignored**, and `package.json`
+  uses exact pinned versions (no `^` ranges). The user explicitly required
+  zero cloud dependency at *any* point, including install — caret ranges
+  meant a fresh `npm install` could silently pull a different (and
+  potentially breaking) version than what was actually tested, and a
+  gitignored `node_modules` meant a fresh clone/copy needed internet access
+  just to become runnable. Verified by copying the whole project to a
+  location that never had `npm install` run against it and confirming it
+  ran correctly from there alone.
+- **`Run.bat` does NOT tie the server's lifetime to the Edge app-window's
+  lifetime.** First attempt tried tracking the launched Edge process's PID
+  (or polling for a process whose command line matched `--app=...`) and
+  killing the server when that disappeared — this broke immediately in
+  testing: Edge is a multi-process, single-instance browser, so a fresh
+  `--app=` launch commonly hands off to an already-running Edge instance
+  under the same user profile (this machine had 67 Edge processes running
+  at the time) with no reliable single process left to track, so the server
+  got killed within ~2 seconds of starting. Fixed by giving the server its
+  own clearly-titled console window ("CLOSE THIS WINDOW TO STOP THE APP")
+  as the one unambiguous stop control, and treating the Edge app window as a
+  pure, independent convenience view. If a genuine "closing the app window
+  stops everything" experience (like the junior app's `pywebview`, which
+  embeds the browser control *in-process*) is wanted later, that would need
+  Electron or a similar in-process embed — deliberately not done here to
+  avoid reintroducing native-build/heavy-vendoring risk.
 
 ## Bugs found and fixed during verification (context for future debugging)
 
@@ -186,10 +253,11 @@ server.js              - wires all routers, binds 0.0.0.0:4000, starts scheduler
   curl, no dedicated UI button or summary screen exists yet). **This is
   probably the most valuable next thing to build** — it would also be the
   natural place to surface the payment-category breakdown the spec asks for.
-- **No README / setup docs** — spec calls for docs covering the Windows
-  firewall prompt on first LAN bind, the QR-code-for-TV workflow, and the
-  OneDrive cross-machine sync gotchas (don't run the app on two machines
-  against the same `.db` file simultaneously).
+- **No formal README.md** — this file (`PROGRESS.md`) and `Install.bat`'s
+  own on-screen messages cover most of what a README would, but the spec's
+  original ask (Windows firewall prompt on first LAN bind, the
+  QR-code-for-TV workflow specifically, and the OneDrive cross-machine sync
+  gotchas) was never written up as a standalone polished doc.
 - **Directional skill compatibility** — not built, symmetric only (see above).
 - **Club-editable recent-pairing lookback window** — not built, fixed at 4.
 - **`pairing_rules` session-scoping** — not built (see schema gap above).
@@ -225,6 +293,10 @@ this — it caught both real bugs listed above.
   trips up Node scripts invoked from Bash with Unix-style paths — use
   relative paths or proper Windows paths when a Node one-liner needs to read
   a file written via a bash heredoc/redirect.
+- If you're in a **remote/claude.ai session with no Bash/PowerShell/browser
+  tools at all**, you obviously can't run the verification pattern above.
+  Say so plainly rather than claiming something was tested - propose the
+  change, and note it needs running locally to confirm.
 
 ## Suggested next steps (pick one, or something else)
 
