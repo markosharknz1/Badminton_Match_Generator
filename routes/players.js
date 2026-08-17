@@ -2,6 +2,7 @@ const express = require('express');
 const store = require('../db/store');
 const { broadcast } = require('../lib/eventBus');
 const { parseCsv, planImport } = require('../lib/csvImport');
+const { parseGbcMembersXlsx } = require('../lib/xlsxImport');
 
 const router = express.Router();
 
@@ -41,10 +42,53 @@ router.get('/', (req, res) => {
     res.json(store.query(sql, params));
 });
 
-// CSV import. commit=false returns the dedup plan (preview); commit=true
-// re-runs the plan server-side and inserts only the toCreate bucket - the
-// client never sends player objects to insert, so a stale preview can't
+// Shared by both import routes below: runs the dedup plan and, if commit is
+// true, inserts the toCreate bucket. commit=false returns a preview only -
+// the client never sends player objects to insert, so a stale preview can't
 // create duplicates that a re-run would have caught.
+function runImportPlan(rows, membershipStatus, commit) {
+    const existing = store.query('SELECT * FROM players');
+    const plan = planImport(rows, existing, membershipStatus);
+
+    let created = 0;
+    let defaultedSkill = 0;
+    if (commit) {
+        for (const item of plan.toCreate) {
+            const p = item.player;
+            let skill = p.skill_level;
+            if (!SKILL_LEVELS.includes(skill)) {
+                skill = 'C'; // mid-grade default; flagged in the response so staff can review
+                defaultedSkill++;
+            }
+            store.insert(
+                `INSERT INTO players (first_name, last_name, email, phone, dob, skill_level, gender, membership_status, membership_number, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [p.first_name, p.last_name, p.email, p.phone, p.dob, skill, p.gender, p.membership_status, p.membership_number, p.notes]
+            );
+            created++;
+        }
+        store.persist();
+        if (created > 0) broadcast('players', {});
+    }
+
+    return {
+        committed: !!commit,
+        created,
+        defaulted_skill: defaultedSkill,
+        to_create: plan.toCreate.map((i) => ({ row: i.rowIndex + 1, name: `${i.player.first_name} ${i.player.last_name}`, email: i.player.email })),
+        to_skip: plan.toSkip.map((i) => ({ row: i.rowIndex + 1, name: `${i.row.first_name} ${i.row.last_name}`, reason: i.reason })),
+        to_review: plan.toReview.map((i) => ({
+            row: i.rowIndex + 1,
+            name: `${i.row.first_name} ${i.row.last_name}`,
+            email: i.row.email || null,
+            dob: i.row.dob || null,
+            reason: i.reason,
+            candidates: i.candidates.map((c) => ({ id: c.id, name: `${c.first_name} ${c.last_name}`, email: c.email, dob: c.dob })),
+        })),
+    };
+}
+
+// CSV import. See runImportPlan for the preview/commit contract.
 router.post('/import', (req, res) => {
     const { csv_text, membership_status, commit } = req.body;
     if (!csv_text || typeof csv_text !== 'string') return res.status(400).json({ error: 'csv_text is required' });
@@ -64,49 +108,39 @@ router.post('/import', (req, res) => {
         return res.status(400).json({ error: `CSV must have first_name and last_name columns filled on every row (${missingName.length} row(s) missing them)` });
     }
 
-    const existing = store.query('SELECT * FROM players');
-    const plan = planImport(rows, existing, membership_status);
+    try {
+        res.json(runImportPlan(rows, membership_status, commit));
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
 
-    let created = 0;
-    let defaultedSkill = 0;
-    if (commit) {
-        try {
-            for (const item of plan.toCreate) {
-                const p = item.player;
-                let skill = p.skill_level;
-                if (!SKILL_LEVELS.includes(skill)) {
-                    skill = 'C'; // mid-grade default; flagged in the response so staff can review
-                    defaultedSkill++;
-                }
-                store.insert(
-                    `INSERT INTO players (first_name, last_name, email, phone, dob, skill_level, gender, membership_status, membership_number)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [p.first_name, p.last_name, p.email, p.phone, p.dob, skill, p.gender, p.membership_status, p.membership_number]
-                );
-                created++;
-            }
-            store.persist();
-            if (created > 0) broadcast('players', {});
-        } catch (err) {
-            return res.status(400).json({ error: err.message });
-        }
+// Excel import for the club's membership export (Rego #, Full Name, Gender,
+// Mbshp Type, Status columns). Body is the raw .xlsx file bytes;
+// membership_status/commit travel as query params since there's no JSON body.
+router.post('/import-xlsx', express.raw({ type: () => true, limit: '20mb' }), async (req, res) => {
+    const membership_status = req.query.membership_status;
+    const commit = req.query.commit === 'true';
+    if (!MEMBERSHIP_STATUSES.includes(membership_status)) {
+        return res.status(400).json({ error: `membership_status must be one of ${MEMBERSHIP_STATUSES.join(', ')}` });
+    }
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    res.json({
-        committed: !!commit,
-        created,
-        defaulted_skill: defaultedSkill,
-        to_create: plan.toCreate.map((i) => ({ row: i.rowIndex + 1, name: `${i.player.first_name} ${i.player.last_name}`, email: i.player.email })),
-        to_skip: plan.toSkip.map((i) => ({ row: i.rowIndex + 1, name: `${i.row.first_name} ${i.row.last_name}`, reason: i.reason })),
-        to_review: plan.toReview.map((i) => ({
-            row: i.rowIndex + 1,
-            name: `${i.row.first_name} ${i.row.last_name}`,
-            email: i.row.email || null,
-            dob: i.row.dob || null,
-            reason: i.reason,
-            candidates: i.candidates.map((c) => ({ id: c.id, name: `${c.first_name} ${c.last_name}`, email: c.email, dob: c.dob })),
-        })),
-    });
+    let rows;
+    try {
+        rows = await parseGbcMembersXlsx(req.body);
+    } catch (err) {
+        return res.status(400).json({ error: `Could not parse Excel file: ${err.message}` });
+    }
+    if (rows.length === 0) return res.status(400).json({ error: 'Excel file contains no data rows' });
+
+    try {
+        res.json(runImportPlan(rows, membership_status, commit));
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
 router.get('/:id', (req, res) => {

@@ -120,6 +120,7 @@ requests after the initial build.
 | — | **Follow-on: Display screen — wall clock, 2-minute warning banner, combined "next match starts in" countdown (remaining + break), escalating break-phase urgency styling** | ✅ |
 | — | **Follow-on: vendored `node_modules` + pinned exact dependency versions** (no cloud/npm-registry dependency at install time, ever) | ✅ |
 | — | **Follow-on: `Install.bat` / `Run.bat` / `run.ps1`** — double-click setup, and double-click launch that opens the app in its own chromeless window automatically | ✅ |
+| — | **Follow-on: Excel (.xlsx) player import** — upload the club's membership export directly (Rego #/Full Name/Gender/Mbshp Type/Status columns); Comp A/B/C maps to skill grade, Social/Junior default to C flagged for review; reuses the existing dedup/commit pipeline | ✅ |
 
 Every feature above was verified end-to-end (curl for API correctness, then
 live in a browser via the preview tools) before being marked done. Two real
@@ -141,6 +142,7 @@ lib/
   autoGenerate.js    - pure, read-only game-generation algorithm (+ .test.js)
   scheduler.js       - setInterval loop driving unattended round rotation
   csvImport.js       - pure dedup/parsing logic (+ .test.js, .sample.js)
+  xlsxImport.js       - parses the club's membership Excel export into the same row shape csvImport uses
   sessionReport.js   - Excel export metrics incl. peak-concurrent sweep (+ .test.js)
 routes/               - one file per resource, thin Express handlers over db/store.js
 public/

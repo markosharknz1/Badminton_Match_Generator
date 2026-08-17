@@ -86,13 +86,13 @@
     </section>
 
     <section class="panel">
-        <h2>Import players from CSV</h2>
-        <p class="muted">Columns: first_name, last_name, email, phone, dob, skill_level, gender, membership_number. Existing players are never overwritten - exact matches are skipped and near-matches flagged for review.</p>
+        <h2>Import players</h2>
+        <p class="muted">CSV columns: first_name, last_name, email, phone, dob, skill_level, gender, membership_number. Or upload the club's membership Excel export directly (Rego #, Full Name, Gender, Mbshp Type, Status - Comp A/B/C maps to skill grade, others default to C for review). Existing players are never overwritten - exact matches are skipped and near-matches flagged for review.</p>
         <div class="field">
-            <label>CSV file</label>
-            <input type="file" id="import-file" accept=".csv,text/csv">
+            <label>CSV or Excel (.xlsx) file</label>
+            <input type="file" id="import-file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
         </div>
-        <div class="field">
+        <div class="field" id="import-text-field">
             <label>Or paste CSV text</label>
             <textarea id="import-text" placeholder="first_name,last_name,email,..."></textarea>
         </div>

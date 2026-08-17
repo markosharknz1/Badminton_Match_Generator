@@ -367,26 +367,47 @@ $('#template-add').addEventListener('click', () => {
     renderTemplates();
 });
 
-// --- CSV import ---
+// --- CSV / Excel import ---
+let xlsxFile = null; // set when the chosen file is .xlsx; takes priority over pasted CSV text
+
 $('#import-file').addEventListener('change', () => {
     const file = $('#import-file').files[0];
     if (!file) return;
+    if (file.name.toLowerCase().endsWith('.xlsx')) {
+        xlsxFile = file;
+        $('#import-text').value = '';
+        $('#import-text-field').style.display = 'none';
+        return;
+    }
+    xlsxFile = null;
+    $('#import-text-field').style.display = '';
     const reader = new FileReader();
     reader.onload = () => { $('#import-text').value = reader.result; };
     reader.readAsText(file);
 });
 
 async function runImport(commit) {
-    const csvText = $('#import-text').value.trim();
-    if (!csvText) {
-        showError('Choose a CSV file or paste CSV text first.');
-        return;
-    }
+    const membershipStatus = $('#import-status').value;
     try {
-        const result = await api('/api/players/import', {
-            method: 'POST',
-            body: JSON.stringify({ csv_text: csvText, membership_status: $('#import-status').value, commit }),
-        });
+        let result;
+        if (xlsxFile) {
+            const bytes = await xlsxFile.arrayBuffer();
+            result = await api(`/api/players/import-xlsx?membership_status=${membershipStatus}&commit=${commit}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/octet-stream' },
+                body: bytes,
+            });
+        } else {
+            const csvText = $('#import-text').value.trim();
+            if (!csvText) {
+                showError('Choose a CSV/Excel file or paste CSV text first.');
+                return;
+            }
+            result = await api('/api/players/import', {
+                method: 'POST',
+                body: JSON.stringify({ csv_text: csvText, membership_status: membershipStatus, commit }),
+            });
+        }
         showError('');
         renderImportResult(result);
     } catch (err) {
