@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Check-in - Game Scheduler</title>
 <link rel="stylesheet" href="/style.css">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/icon-192.png">
+<meta name="theme-color" content="#2563eb">
 </head>
 <body>
 <header class="app-header">
@@ -16,6 +19,7 @@
         <a href="/club.html">Club</a>
         <a href="/history.html">History</a>
     </nav>
+    <button type="button" id="install-app-btn" class="install-btn" style="display:none;">+ Install app</button>
     <div class="session-meta" id="session-meta"></div>
 </header>
 
@@ -119,5 +123,6 @@
 
 <script src="/events.js"></script>
 <script src="/checkin.js"></script>
+<script src="/pwa.js"></script>
 </body>
 </html>

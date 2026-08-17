@@ -42,6 +42,19 @@ header.app-header .session-meta {
     font-size: 0.9rem;
 }
 
+header.app-header .install-btn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--panel);
+}
+
+header.app-header .install-btn:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
 main {
     max-width: 1100px;
     margin: 20px auto;

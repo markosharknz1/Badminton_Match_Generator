@@ -121,6 +121,9 @@ requests after the initial build.
 | — | **Follow-on: vendored `node_modules` + pinned exact dependency versions** (no cloud/npm-registry dependency at install time, ever) | ✅ |
 | — | **Follow-on: `Install.bat` / `Run.bat` / `run.ps1`** — double-click setup, and double-click launch that opens the app in its own chromeless window automatically | ✅ |
 | — | **Follow-on: Excel (.xlsx) player import** — upload the club's membership export directly (Rego #/Full Name/Gender/Mbshp Type/Status columns); Comp A/B/C maps to skill grade, Social/Junior default to C flagged for review; reuses the existing dedup/commit pipeline | ✅ |
+| — | **Follow-on: `db.ensureBaselineDefaults()`** — self-heals club_settings/courts/payment_categories/skill_compatibility if empty (fixes the Club page crashing when the demo-data prompt is declined at install, the correct real-club choice) | ✅ |
+| — | **Follow-on: `Install.bat` auto-installs Node.js LTS via winget** if missing, with a registry-based PATH refresh so the same window can use it immediately | ✅ |
+| — | **Follow-on: installable PWA** — manifest.json + icons + service worker (app-shell caching, API calls always hit the network live) + a header "+ Install app" button wired to the native browser install prompt, so the app gets a real Start Menu/taskbar icon (no Electron - this is Edge's native install support) | ✅ |
 
 Every feature above was verified end-to-end (curl for API correctness, then
 live in a browser via the preview tools) before being marked done. Two real
@@ -152,9 +155,14 @@ public/
   club.html/.js       - club settings, courts, skill matrix, payment categories, templates, CSV import
   history.html/.js    - session history + Excel export UI
   events.js           - shared `subscribeToEvents()` SSE client helper
+  pwa.js               - shared: registers sw.js, wires the "+ Install app" header button
+  sw.js                - service worker: caches the static app shell, never caches /api/*
+  manifest.json         - PWA manifest (start_url /checkin.html, standalone display)
+  icons/                - generated app icons (192/512/maskable-512, blue "GS" monogram)
   style.css           - one shared stylesheet for the staff pages (checkin/manage/club/history)
 server.js              - wires all routers, binds 0.0.0.0:4000, starts scheduler
-Install.bat             - double-click: check Node/Edge, apply schema, optional demo seed
+Install.bat             - double-click: auto-installs Node.js LTS via winget if missing,
+                           checks Edge, applies schema (+ baseline defaults), optional demo seed
 Run.bat                 - double-click: launches run.ps1
 run.ps1                 - starts the server in its own titled console window, waits for it to
                            be ready, opens a chromeless Edge app-mode window pointed at it

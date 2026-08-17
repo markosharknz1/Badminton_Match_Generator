@@ -61,3 +61,6 @@ if ($edge) {
 Write-Host "Game Scheduler is open."
 Write-Host "The server keeps running in the 'Game Scheduler' console window -"
 Write-Host "close that window (not just the app window) to stop it."
+Write-Host ""
+Write-Host "Tip: click '+ Install app' in the header (or the install icon in"
+Write-Host "Edge's address bar) to add a real Start Menu / taskbar icon."
