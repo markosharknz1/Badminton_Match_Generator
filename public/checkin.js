@@ -9,6 +9,7 @@ let allPlayers = []; // full roster, refreshed on load and on 'players' events
 let sessionPaymentRates = []; // this session's category prices [{payment_category_id, name, amount_cents}]
 let paymentModalContext = null; // { attendanceId } while the payment modal is open
 let paymentTrackingEnabled = false; // club_settings.square_enabled - gates the whole payment feature
+let checkinModalPlayerId = null; // player id the check-in modal is currently open for
 
 function $(sel) { return document.querySelector(sel); }
 
@@ -380,7 +381,7 @@ async function removeFromToday(attendanceId, playerId) {
 $('#available-tbody').addEventListener('dblclick', (e) => {
     const tr = e.target.closest('tr[data-player-id]');
     if (!tr) return;
-    checkInPlayer(Number(tr.dataset.playerId));
+    openCheckinModal(Number(tr.dataset.playerId));
 });
 
 $('#available-tbody').addEventListener('click', (e) => {
@@ -399,6 +400,155 @@ function openAddPlayerForm(prefillFullName) {
     }
     $('#np-first').focus();
 }
+
+// --- Check-in modal (double-click an available player) ---
+function openCheckinModal(playerId) {
+    const p = allPlayers.find((x) => x.id === playerId);
+    if (!p) return;
+    checkinModalPlayerId = playerId;
+    $('#cm-player-name').textContent = `${p.first_name} ${p.last_name}`;
+    $('#cm-edit-form').style.display = 'none';
+    fillEditFormFromPlayer(p);
+    $('#cm-error').style.display = 'none';
+
+    if (paymentTrackingEnabled) {
+        $('#cm-payment-section').style.display = 'block';
+        const select = $('#cm-category');
+        select.innerHTML = '<option value="" selected>Select payment&hellip;</option>'
+            + sessionPaymentRates.map((r) => `<option value="${r.payment_category_id}" data-cents="${r.amount_cents}">${esc(r.name)} - ${formatCents(r.amount_cents)}</option>`).join('');
+        $('#cm-amount').value = '';
+        $('#cm-note').value = '';
+        $('#cm-first-time').checked = false;
+        $('#cm-hint').style.display = 'none';
+    } else {
+        $('#cm-payment-section').style.display = 'none';
+    }
+
+    $('#checkin-modal-backdrop').style.display = 'flex';
+}
+
+function fillEditFormFromPlayer(p) {
+    $('#cm-first').value = p.first_name;
+    $('#cm-last').value = p.last_name;
+    $('#cm-skill').value = p.skill_level;
+    $('#cm-gender').value = p.gender || '';
+    $('#cm-status').value = p.membership_status;
+}
+
+function closeCheckinModal() {
+    $('#checkin-modal-backdrop').style.display = 'none';
+    checkinModalPlayerId = null;
+}
+
+function updateCheckinHint() {
+    const amount = parseFloat($('#cm-amount').value);
+    $('#cm-hint').style.display = !Number.isNaN(amount) && amount === 0 ? 'block' : 'none';
+}
+
+$('#cm-edit-toggle').addEventListener('click', () => {
+    const form = $('#cm-edit-form');
+    if (form.style.display === 'none') {
+        const p = allPlayers.find((x) => x.id === checkinModalPlayerId);
+        if (p) fillEditFormFromPlayer(p);
+        form.style.display = 'block';
+    } else {
+        form.style.display = 'none';
+    }
+});
+
+$('#cm-edit-cancel').addEventListener('click', () => {
+    $('#cm-edit-form').style.display = 'none';
+});
+
+$('#cm-edit-save').addEventListener('click', async () => {
+    const first_name = $('#cm-first').value.trim();
+    const last_name = $('#cm-last').value.trim();
+    if (!first_name || !last_name) {
+        showError('First and last name are required.');
+        return;
+    }
+    try {
+        const updated = await api(`/api/players/${checkinModalPlayerId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                first_name,
+                last_name,
+                skill_level: $('#cm-skill').value,
+                gender: $('#cm-gender').value || null,
+                membership_status: $('#cm-status').value,
+            }),
+        });
+        const idx = allPlayers.findIndex((x) => x.id === checkinModalPlayerId);
+        if (idx !== -1) allPlayers[idx] = updated;
+        $('#cm-player-name').textContent = `${updated.first_name} ${updated.last_name}`;
+        $('#cm-edit-form').style.display = 'none';
+        showError('');
+    } catch (err) {
+        showError(err.message);
+    }
+});
+
+$('#cm-category').addEventListener('change', () => {
+    const opt = $('#cm-category').selectedOptions[0];
+    if (opt && opt.dataset.cents !== undefined) {
+        $('#cm-amount').value = (Number(opt.dataset.cents) / 100).toFixed(2);
+        updateCheckinHint();
+    }
+});
+
+$('#cm-amount').addEventListener('input', updateCheckinHint);
+$('#cm-cancel').addEventListener('click', closeCheckinModal);
+$('#checkin-modal-backdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'checkin-modal-backdrop') closeCheckinModal();
+});
+
+$('#cm-checkin').addEventListener('click', async () => {
+    const playerId = checkinModalPlayerId;
+    if (!playerId) return;
+    $('#cm-error').style.display = 'none';
+
+    let categoryId = null;
+    let amountCents = 0;
+    if (paymentTrackingEnabled) {
+        const categoryValue = $('#cm-category').value;
+        if (!categoryValue) {
+            $('#cm-error').textContent = 'Please select a payment option before checking in.';
+            $('#cm-error').style.display = 'block';
+            return;
+        }
+        const amountDollars = parseFloat($('#cm-amount').value);
+        if (Number.isNaN(amountDollars) || amountDollars < 0) {
+            $('#cm-error').textContent = 'Amount must be a valid non-negative number.';
+            $('#cm-error').style.display = 'block';
+            return;
+        }
+        categoryId = Number(categoryValue);
+        amountCents = Math.round(amountDollars * 100);
+    }
+
+    try {
+        const newAttendance = await api(`/api/sessions/${openSession.id}/attendance`, {
+            method: 'POST',
+            body: JSON.stringify({ player_id: playerId }),
+        });
+        if (paymentTrackingEnabled) {
+            await api(`/api/attendance/${newAttendance.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    payment_category_id: categoryId,
+                    payment_amount_cents: amountCents,
+                    payment_note: $('#cm-note').value.trim() || null,
+                    first_time: $('#cm-first-time').checked,
+                }),
+            });
+        }
+        closeCheckinModal();
+        await refreshAttendance();
+    } catch (err) {
+        $('#cm-error').textContent = err.message;
+        $('#cm-error').style.display = 'block';
+    }
+});
 
 $('#here-tbody').addEventListener('dblclick', (e) => {
     if (e.target.closest('.payment-cell')) return; // payment editing lives on single-click, not removal
