@@ -24,12 +24,28 @@
     font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
 * { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
+    height: 100vh;
     padding: 2vmin;
+    overflow: hidden;
+}
+/* Everything (header, banner, courts+resting row) fits one viewport, no
+   scrolling - this is a wall-mounted TV screen, not something anyone scrolls. */
+#live-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+.main-layout {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 1.6vmin;
 }
 header {
     display: flex;
@@ -98,68 +114,88 @@ h1 { font-size: 3.4vmin; margin: 0; }
     50% { opacity: 0.5; }
 }
 .courts {
+    flex: 3;
+    min-width: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(30vmin, 1fr));
-    gap: 1.6vmin;
-    margin-bottom: 2vmin;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 1fr;
+    gap: 2vmin;
+    overflow-y: auto;
 }
 .court {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 1.2vmin;
-    padding: 1.6vmin;
-}
-.court h2 {
-    margin: 0 0 1vmin;
-    font-size: 2.6vmin;
-    color: var(--accent);
+    padding: 2.6vmin 2vmin;
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
+    flex-direction: column;
+    min-width: 0;
 }
-.court h2 .format { font-size: 1.7vmin; color: var(--muted); font-weight: 400; }
-.court .team { font-size: 2.2vmin; margin: 0.4vmin 0; }
-.court .vs { color: var(--muted); font-size: 1.7vmin; text-transform: uppercase; margin: 0.4vmin 0; }
+/* Sized to be read at a glance from across a room - court number and player
+   names are what a crowd needs to find fast, so they're the biggest text on
+   the whole screen. Names that are too long to fit truncate with an ellipsis
+   rather than wrapping - a uniform grid reads faster than a taller row. */
+.court h2 {
+    margin: 0 0 1.6vmin;
+    font-size: 4.6vmin;
+    font-weight: 800;
+    color: var(--accent);
+}
+.court .team {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7vmin;
+    margin-bottom: 4.4vmin;
+    min-width: 0;
+}
+.court .team:last-child { margin-bottom: 0; }
+.court .team .player-name {
+    font-size: 3.4vmin;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .court.free { display: flex; align-items: center; justify-content: center; min-height: 16vmin; }
-.court.free span { color: var(--muted); font-size: 2.6vmin; text-transform: uppercase; letter-spacing: 0.1em; }
-.skill {
-    display: inline-block;
-    font-size: 1.5vmin;
-    font-weight: 700;
-    padding: 0.1vmin 0.8vmin;
-    border-radius: 99px;
-    background: var(--border);
-    color: var(--muted);
-    vertical-align: middle;
-    margin-left: 0.5vmin;
-}
+.court.free span { color: var(--muted); font-size: 3vmin; text-transform: uppercase; letter-spacing: 0.1em; }
 .waiting-panel {
+    flex: 1;
+    min-width: 18vmin;
+    max-width: 30vmin;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 1.2vmin;
     padding: 1.6vmin;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
-.waiting-panel h2 { margin: 0 0 1.2vmin; font-size: 2.4vmin; }
+.waiting-panel h2 { margin: 0 0 1.2vmin; font-size: 2.4vmin; flex-shrink: 0; }
 .waiting-panel h2 .count { color: var(--muted); font-weight: 400; }
-.waiting-list { display: flex; flex-wrap: wrap; gap: 1vmin; }
+/* Single column - one player per row, top to bottom. At typical resting
+   counts this fits the panel with no scrolling at all (verified at
+   1920x1080); overflow-y is a graceful fallback for an unusually packed
+   night, so only this list scrolls rather than the whole screen. */
+.waiting-list {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6vmin;
+    overflow-y: auto;
+}
 .waiting-player {
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 0.9vmin;
-    padding: 0.9vmin 1.4vmin;
-    font-size: 2vmin;
-    display: flex;
-    align-items: center;
-    gap: 0.8vmin;
-}
-.sit-out {
-    background: var(--waiting);
-    color: var(--bg);
-    font-size: 1.5vmin;
-    font-weight: 800;
-    border-radius: 99px;
-    padding: 0.1vmin 0.9vmin;
+    padding: 0.6vmin 1vmin;
+    font-size: 2.2vmin;
+    font-weight: 600;
+    flex-shrink: 0;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 #idle-screen {
     display: none;
@@ -192,11 +228,13 @@ h1 { font-size: 3.4vmin; margin: 0; }
 
     <div class="warning-banner" id="warning-banner" style="display:none;"></div>
 
-    <div class="courts" id="courts"></div>
+    <div class="main-layout">
+        <div class="courts" id="courts"></div>
 
-    <div class="waiting-panel">
-        <h2>Resting <span class="count" id="waiting-count"></span></h2>
-        <div class="waiting-list" id="waiting-list"></div>
+        <div class="waiting-panel">
+            <h2>Resting <span class="count" id="waiting-count"></span></h2>
+            <div class="waiting-list" id="waiting-list"></div>
+        </div>
     </div>
 </div>
 

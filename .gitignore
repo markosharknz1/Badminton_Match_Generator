@@ -1,3 +1,6 @@
 *.log
 game_scheduler.db
 exports/
+logs/
+.edge-app-profile/
+__pycache__/

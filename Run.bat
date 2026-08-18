@@ -10,4 +10,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0run.ps1"
+where pythonw >nul 2>nul
+if errorlevel 1 (
+    echo Python was not found on this machine.
+    echo Please run Install.bat first to set it up.
+    pause
+    exit /b 1
+)
+
+start "" pythonw "%~dp0launcher.py"

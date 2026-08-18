@@ -119,11 +119,14 @@ requests after the initial build.
 | — | **Follow-on: pushed to GitHub** (private repo) | ✅ |
 | — | **Follow-on: Display screen — wall clock, 2-minute warning banner, combined "next match starts in" countdown (remaining + break), escalating break-phase urgency styling** | ✅ |
 | — | **Follow-on: vendored `node_modules` + pinned exact dependency versions** (no cloud/npm-registry dependency at install time, ever) | ✅ |
-| — | **Follow-on: `Install.bat` / `Run.bat` / `run.ps1`** — double-click setup, and double-click launch that opens the app in its own chromeless window automatically | ✅ |
+| — | **Follow-on: `Install.bat` / `Run.bat`** — double-click setup, and double-click launch that opens the app in its own window automatically | ✅ |
 | — | **Follow-on: Excel (.xlsx) player import** — upload the club's membership export directly (Rego #/Full Name/Gender/Mbshp Type/Status columns); Comp A/B/C maps to skill grade, Social/Junior default to C flagged for review; reuses the existing dedup/commit pipeline | ✅ |
 | — | **Follow-on: `db.ensureBaselineDefaults()`** — self-heals club_settings/courts/payment_categories/skill_compatibility if empty (fixes the Club page crashing when the demo-data prompt is declined at install, the correct real-club choice) | ✅ |
 | — | **Follow-on: `Install.bat` auto-installs Node.js LTS via winget** if missing, with a registry-based PATH refresh so the same window can use it immediately | ✅ |
 | — | **Follow-on: installable PWA** — manifest.json + icons + service worker (app-shell caching, API calls always hit the network live) + a header "+ Install app" button wired to the native browser install prompt, so the app gets a real Start Menu/taskbar icon (no Electron - this is Edge's native install support) | ✅ |
+| — | **Follow-on: `launcher.py` replaces the console-window launcher** — Run.bat now opens a real native app window via pywebview (uses Windows' built-in WebView2 runtime, not a bundled Chromium like Electron); closing that window stops the server automatically, no console ever shown, no separate "save" step needed (every write already persists immediately). `Stop.bat` added as a manual fallback. `Install.bat` auto-installs Python via winget + pins `pywebview`/`pythonnet` versions, same pattern as the Node.js auto-install | ✅ |
+| — | **Follow-on: Display link fixed to stay inside the app shell** — the Display nav link's `target="_blank"` was falling through to WebView2's default behaviour of opening a real separate Edge browser window. `launcher.py` now exposes a `js_api` (`Api.open_display()`) and `pwa.js` intercepts the click (only when `window.pywebview` exists, i.e. inside the native shell) to open a second chromeless pywebview window instead - verified via process-count check (Edge process count unchanged, pywebview window count went 1→2) | ✅ |
+| — | **Follow-on: Display screen redesigned for at-a-glance legibility** — courts grid beside a single-column resting list (no grades anywhere - it's member-facing), 4 courts max per row, big bold court numbers/names sized to read from across a room by a 40-50 person crowd, teams shown as stacked names (no "&"/"vs") with a clear gap between partners and an even clearer gap between the two teams, long names truncate with ellipsis instead of wrapping (keeps the grid uniform - and fixed a real bug this surfaced, `min-width:0` needed on grid items or long unwrapped names blow out the grid horizontally). Verified at true 1920x1080 and against 6-10 court counts populated with real club member names | ✅ |
 
 Every feature above was verified end-to-end (curl for API correctness, then
 live in a browser via the preview tools) before being marked done. Two real
@@ -161,11 +164,14 @@ public/
   icons/                - generated app icons (192/512/maskable-512, blue "GS" monogram)
   style.css           - one shared stylesheet for the staff pages (checkin/manage/club/history)
 server.js              - wires all routers, binds 0.0.0.0:4000, starts scheduler
-Install.bat             - double-click: auto-installs Node.js LTS via winget if missing,
-                           checks Edge, applies schema (+ baseline defaults), optional demo seed
-Run.bat                 - double-click: launches run.ps1
-run.ps1                 - starts the server in its own titled console window, waits for it to
-                           be ready, opens a chromeless Edge app-mode window pointed at it
+launcher.py             - starts server.js hidden, opens a real native app window via
+                           pywebview (WebView2), stops the server when that window closes
+Install.bat             - double-click: auto-installs Node.js LTS + Python via winget if
+                           missing, pip installs pywebview/pythonnet, applies schema
+                           (+ baseline defaults), optional demo seed
+Run.bat                 - double-click: launches launcher.py via pythonw (no console window)
+Stop.bat                - double-click: force-stops the server (manual fallback; normally
+                           just close the app window instead)
 node_modules/           - committed on purpose, not gitignored (see decisions below)
 ```
 

@@ -20,10 +20,6 @@ function parseUtc(dtStr) {
     return new Date(`${dtStr.replace(' ', 'T')}Z`).getTime();
 }
 
-function skillTag(skill) {
-    return skill ? `<span class="skill">${skill}</span>` : '';
-}
-
 function playerName(p) {
     return `${p.first_name} ${p.last_name}`;
 }
@@ -53,7 +49,7 @@ function showIdle() {
 function render() {
     const d = displayData;
     $('#idle-screen').style.display = 'none';
-    $('#live-screen').style.display = 'block';
+    $('#live-screen').style.display = 'flex';
 
     $('#club-name').textContent = d.club_name;
     $('#session-label').textContent = `${d.session.label || 'Session'} - ${d.session.date}`;
@@ -144,13 +140,12 @@ function renderCourts() {
         }
         const side = (n) => game.players
             .filter((p) => p.side === n)
-            .map((p) => `${playerName(p)}${skillTag(p.skill_level_at_time)}`)
-            .join(' &amp; ');
+            .map((p) => `<div class="player-name">${playerName(p)}</div>`)
+            .join('');
         return `
             <div class="court">
-                <h2>Court ${c.court_number} <span class="format">${game.format}</span></h2>
+                <h2>Court ${c.court_number}</h2>
                 <div class="team">${side(1)}</div>
-                <div class="vs">vs</div>
                 <div class="team">${side(2)}</div>
             </div>
         `;
@@ -161,12 +156,7 @@ function renderWaiting() {
     const d = displayData;
     $('#waiting-count').textContent = `(${d.waiting.length})`;
     $('#waiting-list').innerHTML = d.waiting.length
-        ? d.waiting.map((w) => `
-            <div class="waiting-player">
-                ${playerName(w)}${skillTag(w.skill_level)}
-                ${w.sit_out_count > 0 ? `<span class="sit-out">sat out ${w.sit_out_count}</span>` : ''}
-            </div>
-        `).join('')
+        ? d.waiting.map((w) => `<div class="waiting-player">${w.first_name}</div>`).join('')
         : '<div class="waiting-player">Everyone is on court</div>';
 }
 

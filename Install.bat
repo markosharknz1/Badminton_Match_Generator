@@ -44,14 +44,51 @@ if errorlevel 1 (
 for /f "delims=" %%v in ('node --version') do echo Found Node.js %%v
 echo.
 
-set "EDGE_FOUND=0"
-if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" set "EDGE_FOUND=1"
-if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" set "EDGE_FOUND=1"
-if "%EDGE_FOUND%"=="1" (
-    echo Found Microsoft Edge - Run.bat will open the app in its own window.
-) else (
-    echo Microsoft Edge was not found - Run.bat will fall back to opening your
-    echo default browser instead ^(everything still works, just as a normal tab^).
+where pythonw >nul 2>nul
+if errorlevel 1 (
+    echo Python was not found on this machine.
+    where winget >nul 2>nul
+    if errorlevel 1 (
+        echo Windows Package Manager ^(winget^) isn't available to install it automatically.
+        echo Please install Python yourself from https://python.org, then run this file again.
+        echo.
+        pause
+        exit /b 1
+    )
+    echo Installing Python via winget - this may take a minute...
+    winget install --id Python.Python.3.12 -e --silent --accept-package-agreements --accept-source-agreements
+    if errorlevel 1 (
+        echo.
+        echo Automatic install failed. Please install Python yourself from https://python.org, then run this file again.
+        echo.
+        pause
+        exit /b 1
+    )
+    echo.
+    echo Python installed - refreshing this window's PATH so we can use it right away...
+    call :RefreshPath
+    where pythonw >nul 2>nul
+    if errorlevel 1 (
+        echo.
+        echo Python was installed, but this window can't see it yet. Please close
+        echo this window and double-click Install.bat again to continue.
+        echo.
+        pause
+        exit /b 1
+    )
+)
+
+for /f "delims=" %%v in ('python --version') do echo Found %%v
+echo.
+
+echo Installing the app-window library ^(pywebview^) - this gives Run.bat a real
+echo window with no console popup, instead of opening a browser tab...
+python -m pip install --quiet --disable-pip-version-check pywebview==6.2.1 pythonnet==3.1.0
+if errorlevel 1 (
+    echo.
+    echo Something went wrong installing pywebview - see the error above.
+    pause
+    exit /b 1
 )
 echo.
 
@@ -75,11 +112,10 @@ if /I "%SEED%"=="y" (
 
 echo.
 echo ============================================
-echo  Setup complete. Double-click Run.bat to start the app.
-echo.
-echo  Want a real Start Menu / taskbar icon instead? Once the app is open,
-echo  click "+ Install app" in the header (or the install icon in Edge's
-echo  address bar) - one click, and Windows adds it like any other app.
+echo  Setup complete. Double-click Run.bat to start the app - it opens in
+echo  its own window (no browser tabs, no console popup), and closing that
+echo  window stops the app cleanly. To force-stop it another way, use
+echo  Stop.bat.
 echo ============================================
 pause
 exit /b 0
