@@ -16,16 +16,35 @@ the regular python.exe/double-clicked directly, or a console window will
 flash briefly.
 """
 import os
-import socket
-import subprocess
 import sys
 import time
-
-import webview
 
 PORT = 4000
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
+
+
+def _fatal(message):
+    # Run.bat launches this via pythonw (no console), so an uncaught error
+    # would otherwise just vanish - the window never appears and nothing
+    # explains why. This is the one place we surface a real, visible dialog.
+    os.makedirs(LOG_DIR, exist_ok=True)
+    with open(os.path.join(LOG_DIR, 'run.log'), 'a', encoding='utf-8') as f:
+        f.write(f'{time.strftime("%Y-%m-%d %H:%M:%S")}  FATAL: {message}\n')
+    try:
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(0, message, 'Game Scheduler failed to start', 0x10)
+    except Exception:
+        pass
+    sys.exit(1)
+
+
+try:
+    import socket
+    import subprocess
+    import webview
+except Exception as exc:
+    _fatal(f'Missing dependency: {exc}\n\nTry double-clicking Run.bat again - it re-installs missing pieces automatically.')
 
 
 def port_open(port):
@@ -140,4 +159,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as exc:
+        _fatal(f'{exc}\n\nSee logs\\run.log and logs\\server.err.log for details.')

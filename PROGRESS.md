@@ -24,18 +24,20 @@ is untouched and out of scope; don't read or modify it.
 
 ## How to run it
 
-**Double-click `Run.bat`** in the project folder. It opens the app
-automatically in its own chromeless Edge window (no address bar/tabs — looks
-like an installed app, not a browser tab), falling back to the default
-browser if Edge isn't present. The server itself runs in a separate,
-clearly-titled console window ("CLOSE THIS WINDOW TO STOP THE APP") — that
-window is the one reliable way to stop it; closing the Edge app window on
-its own does *not* stop the server (see the design-decisions section for why).
+**Double-click `Run.bat`** — that's the only file end users ever need to
+touch, first run or the hundredth. It opens the app in a real native window
+via `launcher.py`/pywebview (Windows' built-in WebView2, not a browser tab),
+and closing that window stops everything cleanly (server included) — no
+console window, no leftover background process.
 
-First time on a machine, double-click **`Install.bat`** first — checks for
-Node.js and Edge, applies the DB schema (idempotent, safe to re-run), and
-optionally offers to load demo data (default is No, so it's safe to re-run
-later without wiping real club data).
+The *first* time it's run on a machine (or if Node.js/Python/pywebview are
+missing), `Run.bat` shows a brief setup screen: installs Node.js and Python
+via `winget` if needed, installs `pywebview`, and applies the DB schema
+(idempotent, safe to re-run, never touches real data). Every run after that
+is instant and silent - no setup screen, no console flash. There's no
+separate `Install.bat` any more; it was folded into `Run.bat` specifically
+so downloading a release and getting the app running is one double-click,
+not two.
 
 Manual equivalent (what the scripts wrap), useful when debugging:
 ```
@@ -128,6 +130,7 @@ requests after the initial build.
 | — | **Follow-on: Display link fixed to stay inside the app shell** — the Display nav link's `target="_blank"` was falling through to WebView2's default behaviour of opening a real separate Edge browser window. `launcher.py` now exposes a `js_api` (`Api.open_display()`) and `pwa.js` intercepts the click (only when `window.pywebview` exists, i.e. inside the native shell) to open a second chromeless pywebview window instead - verified via process-count check (Edge process count unchanged, pywebview window count went 1→2) | ✅ |
 | — | **Follow-on: Display screen redesigned for at-a-glance legibility** — courts grid beside a single-column resting list (no grades anywhere - it's member-facing), 4 courts max per row, big bold court numbers/names sized to read from across a room by a 40-50 person crowd, teams shown as stacked names (no "&"/"vs") with a clear gap between partners and an even clearer gap between the two teams, long names truncate with ellipsis instead of wrapping (keeps the grid uniform - and fixed a real bug this surfaced, `min-width:0` needed on grid items or long unwrapped names blow out the grid horizontally). Verified at true 1920x1080 and against 6-10 court counts populated with real club member names | ✅ |
 | — | **Follow-on: check-in now pops a details modal** — double-clicking an available player opens a modal (name, "Edit" toggle for the full player profile, and - when payment tracking is on - a required payment category dropdown sourced from the session's own payment rates, amount, first-time flag, note) instead of silently checking them in; check-in and payment are recorded together in one action. When payment tracking is off the modal still opens (no payment section) and check-in needs no extra input. The existing "Here today" payment-cell modal (for fixing payment after the fact) is untouched. Verified live: required-payment validation blocks check-in, edit-and-save persists to the real player record, and the full check-in-with-payment flow writes the correct attendance + payment row | ✅ |
+| — | **Follow-on: v1.0.0 tagged + GitHub release published**, then `Install.bat` folded into `Run.bat`** — a downloaded release needed two double-clicks (Install.bat, then Run.bat) to get running; not truly one-click. `Run.bat` now branches itself: if Node/Python/pywebview are all already present it launches instantly with zero console window (the every-day path); otherwise it shows the same setup screen Install.bat used to (minus the interactive demo-data prompt, which real club use should always decline anyway) and then launches. `Install.bat` deleted - one file to double-click, first run or the hundredth. Also hardened `launcher.py`: since pythonw has no console, any startup failure (missing dependency, WebView2 issue, etc.) now shows a real Windows message box instead of the window just never appearing with no explanation | ✅ |
 
 Every feature above was verified end-to-end (curl for API correctness, then
 live in a browser via the preview tools) before being marked done. Two real
@@ -166,11 +169,15 @@ public/
   style.css           - one shared stylesheet for the staff pages (checkin/manage/club/history)
 server.js              - wires all routers, binds 0.0.0.0:4000, starts scheduler
 launcher.py             - starts server.js hidden, opens a real native app window via
-                           pywebview (WebView2), stops the server when that window closes
-Install.bat             - double-click: auto-installs Node.js LTS + Python via winget if
-                           missing, pip installs pywebview/pythonnet, applies schema
-                           (+ baseline defaults), optional demo seed
-Run.bat                 - double-click: launches launcher.py via pythonw (no console window)
+                           pywebview (WebView2), stops the server when that window closes;
+                           any startup failure shows a real message box (pythonw has no
+                           console to print to) instead of silently doing nothing
+Run.bat                 - double-click: THE only file end users need. Fast path (Node/
+                           Python/pywebview all present) launches launcher.py via pythonw
+                           instantly with zero console window. Slow path (first run, or
+                           something's missing) shows a brief setup screen - auto-installs
+                           Node.js/Python via winget, pip installs pywebview/pythonnet,
+                           applies DB schema - then launches. No separate Install.bat.
 Stop.bat                - double-click: force-stops the server (manual fallback; normally
                            just close the app window instead)
 node_modules/           - committed on purpose, not gitignored (see decisions below)
@@ -270,7 +277,7 @@ node_modules/           - committed on purpose, not gitignored (see decisions be
   curl, no dedicated UI button or summary screen exists yet). **This is
   probably the most valuable next thing to build** — it would also be the
   natural place to surface the payment-category breakdown the spec asks for.
-- **No formal README.md** — this file (`PROGRESS.md`) and `Install.bat`'s
+- **No formal README.md** — this file (`PROGRESS.md`) and `Run.bat`'s
   own on-screen messages cover most of what a README would, but the spec's
   original ask (Windows firewall prompt on first LAN bind, the
   QR-code-for-TV workflow specifically, and the OneDrive cross-machine sync
