@@ -51,9 +51,6 @@ function render() {
     $('#idle-screen').style.display = 'none';
     $('#live-screen').style.display = 'flex';
 
-    $('#club-name').textContent = d.club_name;
-    $('#session-label').textContent = `${d.session.label || 'Session'} - ${d.session.date}`;
-
     renderPhase();
     renderCourts();
     renderWaiting();
@@ -173,9 +170,5 @@ countdownHandle = setInterval(() => {
     tickCountdown();
 }, 1000);
 tickClock();
-
-api('/api/club-settings')
-    .then((club) => { $('#idle-club-name').textContent = club.club_name; })
-    .catch(() => {});
 
 refresh();

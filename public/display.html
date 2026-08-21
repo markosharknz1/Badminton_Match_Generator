@@ -49,14 +49,13 @@ body {
 }
 header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     flex-wrap: wrap;
     gap: 1vmin;
     margin-bottom: 2vmin;
 }
 h1 { font-size: 3.4vmin; margin: 0; }
-.session-label { color: var(--muted); font-size: 2.2vmin; }
 .timer-block { text-align: right; }
 .wall-clock {
     font-size: 2vmin;
@@ -208,16 +207,11 @@ h1 { font-size: 3.4vmin; margin: 0; }
 </head>
 <body>
 <div id="idle-screen">
-    <h1 id="idle-club-name">Game Scheduler</h1>
-    <p>No session in progress</p>
+    <h1>No session in progress</h1>
 </div>
 
 <div id="live-screen" style="display:none;">
     <header>
-        <div>
-            <h1 id="club-name">Game Scheduler</h1>
-            <div class="session-label" id="session-label"></div>
-        </div>
         <div class="timer-block">
             <div class="wall-clock" id="wall-clock"></div>
             <div class="phase-label" id="phase-label"></div>
