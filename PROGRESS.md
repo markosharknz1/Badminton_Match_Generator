@@ -24,20 +24,27 @@ is untouched and out of scope; don't read or modify it.
 
 ## How to run it
 
-**Double-click `Run.bat`** — that's the only file end users ever need to
-touch, first run or the hundredth. It opens the app in a real native window
-via `launcher.py`/pywebview (Windows' built-in WebView2, not a browser tab),
-and closing that window stops everything cleanly (server included) — no
-console window, no leftover background process.
+**Double-click `GameScheduler.exe`** — that's the only file end users ever
+need to touch, first run or the hundredth. It's a real compiled Windows
+executable (built from `launcher.py` via PyInstaller - Python/pywebview/
+pythonnet are all bundled inside it, nothing to install for the launcher
+itself), not a batch file. It opens the app in a real native window via
+pywebview (Windows' built-in WebView2, not a browser tab), and closing that
+window stops everything cleanly (server included) — no console window, no
+leftover background process.
 
-The *first* time it's run on a machine (or if Node.js/Python/pywebview are
-missing), `Run.bat` shows a brief setup screen: installs Node.js and Python
-via `winget` if needed, installs `pywebview`, and applies the DB schema
-(idempotent, safe to re-run, never touches real data). Every run after that
-is instant and silent - no setup screen, no console flash. There's no
-separate `Install.bat` any more; it was folded into `Run.bat` specifically
-so downloading a release and getting the app running is one double-click,
-not two.
+The *first* time it's run on a machine (or if Node.js is missing - the one
+remaining external dependency, since it's what actually runs server.js),
+`GameScheduler.exe` shows a message box, installs Node.js via `winget`, then
+applies the DB schema (idempotent, safe to re-run, never touches real data)
+and opens the app. Every run after that is instant and silent - no dialog,
+no console, ever (there never was a console - pythonw/PyInstaller's
+`--noconsole` build has none).
+
+To rebuild the exe after changing `launcher.py`: double-click
+`build_exe.bat` (dev-only tool, not something end users ever run) - it
+reinvokes PyInstaller and copies the result over the committed
+`GameScheduler.exe` at the project root.
 
 Manual equivalent (what the scripts wrap), useful when debugging:
 ```
@@ -133,6 +140,7 @@ requests after the initial build.
 | — | **Follow-on: v1.0.0 tagged + GitHub release published**, then `Install.bat` folded into `Run.bat`** — a downloaded release needed two double-clicks (Install.bat, then Run.bat) to get running; not truly one-click. `Run.bat` now branches itself: if Node/Python/pywebview are all already present it launches instantly with zero console window (the every-day path); otherwise it shows the same setup screen Install.bat used to (minus the interactive demo-data prompt, which real club use should always decline anyway) and then launches. `Install.bat` deleted - one file to double-click, first run or the hundredth. Also hardened `launcher.py`: since pythonw has no console, any startup failure (missing dependency, WebView2 issue, etc.) now shows a real Windows message box instead of the window just never appearing with no explanation | ✅ |
 | — | **Follow-on: v1.0.1 released** - Display screen header stripped down to just the courts/countdown/resting (dropped club name and session label/date, less to read from a distance). Verified by downloading and running the actual published release zip in an isolated folder, not just the working tree | ✅ |
 | — | **Follow-on: "first time visitor" and "new member" are two independent flags on attendance**, and neither requires payment tracking any more — both checkboxes/badges were nested inside the payment section of the check-in modal/"Here today" table, so clubs with payment tracking off had no way to flag either at all. Added `attendance.new_member` (mirrors `first_time` - a one-off per-visit flag, not a persistent player attribute) via `db/index.js`'s new `ensureColumns()` migration (additive `ALTER TABLE`, idempotent, runs on every boot alongside `ensureBaselineDefaults` - retrofits the column onto existing real databases without touching their data). Both checkboxes moved out of the payment section to always show in the check-in modal, and both badges ("1st" / "New") now render next to the player's name in "Here today" regardless of payment tracking. Verified live: migration runs cleanly against the real 141-player database, both flags record independently (one ticked without the other), and both still work correctly with payment tracking off | ✅ |
+| — | **Follow-on: `GameScheduler.exe` replaces `Run.bat`** — a real compiled Windows executable (PyInstaller `--onefile --noconsole`), not a batch file. `launcher.py` now also absorbs the Node.js-install-via-winget logic that used to live in `Run.bat` (Python/pywebview/pythonnet are bundled inside the exe itself, so the only remaining external dependency is Node.js, installed automatically on first run if missing). `Install.bat`/`Run.bat` are both gone; `build_exe.bat` is the dev-only tool that rebuilds the committed exe after a `launcher.py` change. Verified: built and ran the actual exe (not just the script) end-to-end - real native window, correct icon, zero console anywhere, real data intact, clean shutdown with no orphaned processes | ✅ |
 
 Every feature above was verified end-to-end (curl for API correctness, then
 live in a browser via the preview tools) before being marked done. Two real
@@ -170,16 +178,22 @@ public/
   icons/                - generated app icons (192/512/maskable-512, blue "GS" monogram)
   style.css           - one shared stylesheet for the staff pages (checkin/manage/club/history)
 server.js              - wires all routers, binds 0.0.0.0:4000, starts scheduler
-launcher.py             - starts server.js hidden, opens a real native app window via
-                           pywebview (WebView2), stops the server when that window closes;
-                           any startup failure shows a real message box (pythonw has no
-                           console to print to) instead of silently doing nothing
-Run.bat                 - double-click: THE only file end users need. Fast path (Node/
-                           Python/pywebview all present) launches launcher.py via pythonw
-                           instantly with zero console window. Slow path (first run, or
-                           something's missing) shows a brief setup screen - auto-installs
-                           Node.js/Python via winget, pip installs pywebview/pythonnet,
-                           applies DB schema - then launches. No separate Install.bat.
+launcher.py             - source for GameScheduler.exe. Installs Node.js via winget if
+                           missing, applies DB schema, starts server.js hidden, opens a
+                           real native app window via pywebview (WebView2), stops the
+                           server when that window closes; any startup failure shows a
+                           real message box (no console to print to) instead of silently
+                           doing nothing
+GameScheduler.exe       - THE only file end users need, first run or the hundredth. A
+                           real compiled exe (PyInstaller, --onefile --noconsole) - not a
+                           batch file. Python/pywebview/pythonnet are bundled inside it;
+                           the only thing it needs from the host machine is Node.js,
+                           which it installs itself via winget on first run if missing.
+                           Committed to git (~18MB) like node_modules is - nothing to
+                           build at install time
+build_exe.bat           - dev-only: rebuilds GameScheduler.exe from launcher.py via
+                           PyInstaller. End users never run this
+app_icon.ico             - GameScheduler.exe's icon (generated from public/icons/icon-512.png)
 Stop.bat                - double-click: force-stops the server (manual fallback; normally
                            just close the app window instead)
 node_modules/           - committed on purpose, not gitignored (see decisions below)
@@ -237,22 +251,22 @@ node_modules/           - committed on purpose, not gitignored (see decisions be
   just to become runnable. Verified by copying the whole project to a
   location that never had `npm install` run against it and confirming it
   ran correctly from there alone.
-- **`Run.bat` does NOT tie the server's lifetime to the Edge app-window's
-  lifetime.** First attempt tried tracking the launched Edge process's PID
-  (or polling for a process whose command line matched `--app=...`) and
-  killing the server when that disappeared — this broke immediately in
-  testing: Edge is a multi-process, single-instance browser, so a fresh
-  `--app=` launch commonly hands off to an already-running Edge instance
-  under the same user profile (this machine had 67 Edge processes running
-  at the time) with no reliable single process left to track, so the server
-  got killed within ~2 seconds of starting. Fixed by giving the server its
-  own clearly-titled console window ("CLOSE THIS WINDOW TO STOP THE APP")
-  as the one unambiguous stop control, and treating the Edge app window as a
-  pure, independent convenience view. If a genuine "closing the app window
-  stops everything" experience (like the junior app's `pywebview`, which
-  embeds the browser control *in-process*) is wanted later, that would need
-  Electron or a similar in-process embed — deliberately not done here to
-  avoid reintroducing native-build/heavy-vendoring risk.
+- **Superseded: the original Edge `--app=` launcher couldn't tie the
+  server's lifetime to the app window closing.** First attempt tried
+  tracking the launched Edge process's PID and killing the server when it
+  disappeared — broke immediately: Edge is a multi-process, single-instance
+  browser, so a fresh `--app=` launch commonly hands off to an already-
+  running Edge instance with no reliable process to track, killing the
+  server within ~2 seconds of starting. Worked around at the time by giving
+  the server its own console window as the one unambiguous stop control.
+  **This whole problem is gone now** - `launcher.py`/`GameScheduler.exe`
+  uses `pywebview` (an in-process, embedded WebView2 control, not a real
+  Edge browser process) specifically so closing the window IS a reliable,
+  native event (`window.events.closed`) with nothing to hand off to.
+  Electron would also have solved this but was deliberately avoided (a
+  bundled Chromium runtime is 150-200MB+ and doesn't fit the "vendor
+  everything into git" approach at reasonable size) - pywebview gets the
+  same reliability using WebView2, which Windows already ships.
 
 ## Bugs found and fixed during verification (context for future debugging)
 
@@ -279,7 +293,7 @@ node_modules/           - committed on purpose, not gitignored (see decisions be
   curl, no dedicated UI button or summary screen exists yet). **This is
   probably the most valuable next thing to build** — it would also be the
   natural place to surface the payment-category breakdown the spec asks for.
-- **No formal README.md** — this file (`PROGRESS.md`) and `Run.bat`'s
+- **No formal README.md** — this file (`PROGRESS.md`) and `GameScheduler.exe`'s
   own on-screen messages cover most of what a README would, but the spec's
   original ask (Windows firewall prompt on first LAN bind, the
   QR-code-for-TV workflow specifically, and the OneDrive cross-machine sync

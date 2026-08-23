@@ -4,3 +4,8 @@ exports/
 logs/
 .edge-app-profile/
 __pycache__/
+# PyInstaller working dirs - build_exe.bat regenerates these; only the
+# resulting GameScheduler.exe (committed, at the project root) ships.
+build/
+dist/
+*.spec
