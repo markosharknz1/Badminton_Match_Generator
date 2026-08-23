@@ -143,6 +143,15 @@ requests after the initial build.
 | — | **Follow-on: `GameScheduler.exe` replaces `Run.bat`** — a real compiled Windows executable (PyInstaller `--onefile --noconsole`), not a batch file. `launcher.py` now also absorbs the Node.js-install-via-winget logic that used to live in `Run.bat` (Python/pywebview/pythonnet are bundled inside the exe itself, so the only remaining external dependency is Node.js, installed automatically on first run if missing). `Install.bat`/`Run.bat` are both gone; `build_exe.bat` is the dev-only tool that rebuilds the committed exe after a `launcher.py` change. Verified: built and ran the actual exe (not just the script) end-to-end - real native window, correct icon, zero console anywhere, real data intact, clean shutdown with no orphaned processes | ✅ |
 | — | **Follow-on: "Club" renamed to "Club Settings"; new "Members" page split out** — roster browse/search/inline-edit/delete (`public/members.html`/`.js`, reusing the existing player CRUD endpoints) and the CSV/Excel import section (moved off Club Settings) now live on their own page, separate from club-wide config. Also added automatic database backups: `db/index.js`'s `backupToDocuments()` copies `game_scheduler.db` to `Documents\GameScheduler\backups` once per server boot (timestamped, prunes down to the newest 30, never throws - a failed backup can't block the app from starting), plus a `routes/backup.js` with manual "back up now" and "download a copy" actions surfaced on the Members page. Verified live: automatic backup file appears in the real Documents folder on boot, inline edit persists to the real DB, add/delete both work, manual backup-now creates a second real file, and the download endpoint streams a valid copy | ✅ |
 | — | **Bug fix: `sw.js` was cache-first, so an updated release could still show old cached pages** — every version of the app serves from the same `http://localhost:4000` origin, so WebView2's cache/service-worker persists across app updates (a real user hit this: installed v1.0.4, still saw pre-Members-page content). `GameScheduler.exe` already waits for the server to be ready before opening the window (`launcher.py`'s `start_server()`), so the cache-first "still opens if the server is slow" justification never actually applied to the exe launch path. Switched to network-first (cache only as a last-resort fallback if the network genuinely fails) and bumped the cache name to force one clean transition. Verified by reproducing the exact bug - modified a live file's content, reloaded a tab with an already-registered old-style service worker and populated cache with no manual cache-clearing, confirmed the new content appeared immediately | ✅ |
+| — | **Follow-on: nav reordered, Settings restructured into a dropdown, Player Database, live mode switcher, grade promoted at check-in** — several changes landed together: (1) nav order is now Check-in/Rounds/Display/Player Database/History/Settings, with "Settings" always last; (2) the old "Club Settings" page is now driven by a `<select>` (`data-section` show/hide, `club.js`'s `showSettingsSection()`) with six options - Club Details (club name + payment categories, merged), Courts, Skill Compatibility, Session Templates, Email, Payments; (3) new Email (SMTP2Go) and Payments (Square) sections save credentials to five new `club_settings` columns via the existing `ensureColumns()` migration pattern - settings/storage only, nothing sends email or processes a real payment yet (confirmed with the user before building - the Junior Club Training app doesn't have these built either, so there was no existing pattern to copy); (4) Members renamed to "Player Database" and redesigned from always-editable rows to a read-only list with a per-row Edit/Save/Cancel toggle (`editingMemberId` in `members.js`); (5) session mode (manual/auto/social) can now be changed live from a dropdown in the header on Check-in and Rounds - `PUT /api/sessions/:id` already supported this, it just had no UI - verified switching modes actually flips the Rounds page's manage/social panels live; (6) the check-in popup's Grade field moved out from behind "Edit" to sit directly next to the player's name, saving immediately on change (most commonly changed field, shouldn't need an extra click) - still the same player record, "sticks with the player" same as before. Verified live end-to-end: DB migration ran clean against the real database, Club Details shows both merged panels, Courts/Skill/Templates each render correctly when selected, Email/Payments credentials round-tripped through a save+reload, Player Database's read-only-then-edit toggle confirmed both ways, mode switch confirmed via the real DB value and the Rounds page's panel actually flipping, and Grade-at-check-in confirmed persisting to the player record without needing "Edit" | ✅ |
+
+| — | **Follow-on: manual mode - drag players back out of a court, not just in** — filled slots (when a court is editable - a fresh draft or a staged court with "Edit" clicked) are now `draggable`, and dropping one on the player-pool sidebar unassigns them; dropping one on another court's side slot moves them there directly, without a trip through the pool. Testing this surfaced a real bug and fixed it before shipping: `dropPlayer()` used to remove the player from their source slot unconditionally, then reject the drop if the target was full - silently losing them from the draft entirely. Rewrote it to check target capacity (correctly excluding the player's own current slot, so a same-court side swap isn't miscounted as "occupied by self") *before* touching the source, so a rejected drop leaves the player exactly where they started. Verified live with real staged round data: drag-to-pool, drag-to-full-slot (confirmed rejected with zero data loss, confirmed via the real staged game afterward), and a genuine cross-court move - all three via actual `DragEvent`/`DataTransfer` dispatch, not just direct function calls, with every test's edits discarded (`cancelEditCourt`/`clearCourt`) so the real staged games for that round were never touched | ✅ |
+
+| — | **Follow-on: check-in popup layout cleanup** — the player name was sharing a row with the Grade dropdown, wrapped to two lines, and squeezed the layout; Edit/checkboxes were oddly positioned. Reworked to: full-width name at the top, then Payment/Amount/Note, then Grade, then Edit on its own line, then First time visitor + New member together in one row - the modal is a fixed 380px wide, too narrow to fit Edit alongside two checkbox labels on one line without an awkward wrap, so they're split into their own rows instead of forced together. All IDs unchanged, so no JS logic needed touching; verified live that Edit still toggles the profile-edit panel open/closed correctly after the reshuffle | ✅ |
+
+| — | **Follow-on: rounds played, visible directly on the Rounds page** — the round builder previously had no way to review earlier rounds without a trip to History; confirmed the underlying data/endpoint (`GET /api/history/sessions/:id`) already worked correctly for an *open* session, this was purely a discoverability gap. Added two ways to see it in place: (1) a "View rounds played" button opens a popup showing every round of the current session at once (`renderHistoryGameRow()` in `manage.js`, styling reused from the existing History page's `.round-block`/`.history-game` classes); (2) the "Currently on court" panel gained `‹`/`›` browse arrows next to the round number - stepping back shows that round's completed lineup (`GET /api/sessions/:id/games?round_number=X&status=completed`), stepping forward returns toward the live round (`status=active`), with `›` disabled once back at live. Verified live against the real open session: back-arrow correctly showed round 4's actual completed lineup, forward-arrow returned to round 5's live games and re-disabled correctly, and the popup listed all rounds 1-5 with correct players | ✅ |
+
+| — | **Follow-on: "Finish session" button** — closing a session previously required a raw `PUT /api/sessions/:id {status:"closed"}` call with no UI anywhere to trigger it (a real gap - a club would have no way to end their night and start fresh next time without curl/devtools). Added a red "Finish session" button to the header on Check-in and Rounds (visible whenever a session is open), which confirms then flips `status` to `closed` - no data is touched or lost, and the session can be reopened the same way (same `PUT`, no dedicated UI for that side since finishing is meant to be the normal end-of-night action). Note: this is the simple status-flip only, not the fuller close-out spec described below (auto-move stragglers, stop the scheduler, show a summary screen) - that remains deferred. Verified live: clicked the real button, confirmed the app correctly dropped to "No session open" on both Check-in and Rounds, then reopened via the API and confirmed every round/attendance/payment record from the session was still intact and the UI picked back up exactly where it left off | ✅ |
 
 Every feature above was verified end-to-end (curl for API correctness, then
 live in a browser via the preview tools) before being marked done. Two real
@@ -171,8 +180,12 @@ public/
   checkin.html/.js    - check-in screen (also hosts payment recording modal)
   manage.html/.js     - "Rounds" screen (round status/controls + drag-drop game builder)
   display.html/.js    - kiosk display (wall clock, countdowns, warning banner - own inline styles)
-  club.html/.js       - club-wide config: settings, courts, skill matrix, payment categories, templates
-  members.html/.js    - roster browse/search/inline-edit/delete, CSV/Excel import, database backups
+  club.html/.js       - "Settings" nav tab (always last). Dropdown-driven: Club Details (name +
+                          payment categories), Courts, Skill Compatibility, Session Templates,
+                          Email (SMTP2Go creds), Payments (Square creds) - the last two are
+                          storage only, nothing sends/processes yet
+  members.html/.js    - "Player Database" nav tab. Read-only roster list with a per-row Edit
+                          toggle, search, add/delete, CSV/Excel import, database backups
   history.html/.js    - session history + Excel export UI
   events.js           - shared `subscribeToEvents()` SSE client helper
   pwa.js               - shared: registers sw.js, wires the "+ Install app" header button
@@ -287,15 +300,15 @@ node_modules/           - committed on purpose, not gitignored (see decisions be
 
 ## Explicitly NOT built yet / deferred
 
-- **"Finish session" feature** — the spec describes a close-out sequence
-  (auto-move stragglers to `left`, stop the scheduler, flip `status='closed'`,
-  show a summary screen with peak headcount / rounds played / payment
-  breakdown by category). This was deferred at check-in-screen build time
-  (step 5) and never circled back to. Sessions currently get closed via a
-  raw `PUT /api/sessions/:id {status:"closed"}` call (works fine via API/
-  curl, no dedicated UI button or summary screen exists yet). **This is
-  probably the most valuable next thing to build** — it would also be the
-  natural place to surface the payment-category breakdown the spec asks for.
+- **"Finish session" close-out summary screen** — a basic "Finish session"
+  button now exists (see Follow-on above): it flips `status='closed'` with
+  a confirm prompt, nothing more. The fuller spec (auto-move stragglers to
+  `left`, stop the scheduler, and show a summary screen with peak headcount
+  / rounds played / payment breakdown by category before/after closing) is
+  still not built. Since all of that data already lives in the DB and the
+  session report code (`lib/sessionReport.js`) already computes most of it
+  for History/exports, the summary screen would mostly be wiring, not new
+  logic — a reasonable next step if a club wants an end-of-night recap.
 - **No formal README.md** — this file (`PROGRESS.md`) and `GameScheduler.exe`'s
   own on-screen messages cover most of what a README would, but the spec's
   original ask (Windows firewall prompt on first LAN bind, the
@@ -343,8 +356,9 @@ this — it caught both real bugs listed above.
 
 ## Suggested next steps (pick one, or something else)
 
-1. Build "Finish session" (close-out + summary screen with payment
-   breakdown) — biggest remaining spec gap.
+1. Build the "Finish session" close-out summary screen (peak headcount /
+   rounds played / payment breakdown) on top of the now-existing basic
+   close button — biggest remaining spec gap.
 2. Write the README / setup docs (firewall, QR code, OneDrive workflow).
 3. Whatever new feature request comes up — this doc plus the code itself
    should be enough context to continue without re-deriving the whole

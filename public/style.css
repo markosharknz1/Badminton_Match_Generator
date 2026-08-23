@@ -98,6 +98,14 @@ button.primary {
 
 button.primary:hover { background: var(--primary-dark); }
 
+button.danger {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: var(--panel);
+}
+
+button.danger:hover { background: var(--danger); color: #fff; }
+
 button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -441,6 +449,13 @@ nav.app-nav a.active {
     background: #fafbfc;
 }
 
+.player-pool-sidebar.drag-over {
+    border-color: var(--primary);
+    background: #eef2ff;
+}
+
+.slot.filled[draggable="true"] { cursor: grab; }
+
 .player-pool-sidebar h3 {
     margin: 0 0 10px;
     font-size: 0.9rem;
@@ -696,6 +711,16 @@ textarea {
 }
 
 .modal h3 { margin-top: 0; font-size: 1.05rem; }
+
+.modal.wide {
+    width: 640px;
+}
+
+.modal #rounds-modal-body {
+    max-height: 60vh;
+    overflow-y: auto;
+    margin-bottom: 12px;
+}
 
 /* --- Payment cells / badges --- */
 .payment-cell { cursor: pointer; }

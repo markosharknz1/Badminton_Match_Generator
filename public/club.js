@@ -39,6 +39,16 @@ function flashSaved(sel) {
     setTimeout(() => { el.textContent = ''; }, 2000);
 }
 
+// --- Section switcher ---
+function showSettingsSection(name) {
+    document.querySelectorAll('[data-section]').forEach((el) => {
+        el.style.display = el.dataset.section === name ? '' : 'none';
+    });
+}
+
+$('#settings-section').addEventListener('change', () => showSettingsSection($('#settings-section').value));
+showSettingsSection($('#settings-section').value);
+
 // --- Club settings ---
 async function loadSettings() {
     const s = await api('/api/club-settings');
@@ -48,6 +58,11 @@ async function loadSettings() {
     $('#cs-break').value = s.default_break_minutes;
     $('#cs-capacity').value = s.max_capacity ?? '';
     $('#cs-square').checked = !!s.square_enabled;
+    $('#email-api-key').value = s.smtp2go_api_key || '';
+    $('#email-sender-address').value = s.smtp2go_sender_email || '';
+    $('#email-sender-name').value = s.smtp2go_sender_name || '';
+    $('#payments-access-token').value = s.square_access_token || '';
+    $('#payments-location-id').value = s.square_location_id || '';
 }
 
 $('#cs-save').addEventListener('click', async () => {
@@ -66,6 +81,41 @@ $('#cs-save').addEventListener('click', async () => {
         $('#club-name').textContent = saved.club_name;
         showError('');
         flashSaved('#cs-saved');
+    } catch (err) {
+        showError(err.message);
+    }
+});
+
+// --- Email (SMTP2Go credentials - not wired to actually send anything yet) ---
+$('#email-save').addEventListener('click', async () => {
+    try {
+        await api('/api/club-settings', {
+            method: 'PUT',
+            body: JSON.stringify({
+                smtp2go_api_key: $('#email-api-key').value.trim() || null,
+                smtp2go_sender_email: $('#email-sender-address').value.trim() || null,
+                smtp2go_sender_name: $('#email-sender-name').value.trim() || null,
+            }),
+        });
+        showError('');
+        flashSaved('#email-saved');
+    } catch (err) {
+        showError(err.message);
+    }
+});
+
+// --- Payments (Square credentials - not wired to actually process anything yet) ---
+$('#payments-save').addEventListener('click', async () => {
+    try {
+        await api('/api/club-settings', {
+            method: 'PUT',
+            body: JSON.stringify({
+                square_access_token: $('#payments-access-token').value.trim() || null,
+                square_location_id: $('#payments-location-id').value.trim() || null,
+            }),
+        });
+        showError('');
+        flashSaved('#payments-saved');
     } catch (err) {
         showError(err.message);
     }

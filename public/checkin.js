@@ -101,6 +101,8 @@ async function enterStartSessionMode() {
     $('#start-session-panel').style.display = 'block';
     $('#checkin-panel').style.display = 'none';
     $('#session-meta').textContent = 'No session open';
+    $('#session-mode-select').style.display = 'none';
+    $('#finish-session-btn').style.display = 'none';
 
     const data = await api('/api/session-templates/for-date');
     const body = $('#start-session-body');
@@ -257,11 +259,29 @@ async function enterCheckinMode() {
     $('#start-session-panel').style.display = 'none';
     $('#checkin-panel').style.display = 'block';
     showError('');
-    $('#session-meta').textContent = `${openSession.label || 'Session'} - ${openSession.date} - ${openSession.mode} mode`;
+    $('#session-meta').textContent = `${openSession.label || 'Session'} - ${openSession.date}`;
+    $('#session-mode-select').value = openSession.mode;
+    $('#session-mode-select').style.display = '';
+    $('#finish-session-btn').style.display = '';
     await loadAllPlayers();
     sessionPaymentRates = paymentTrackingEnabled ? await api(`/api/sessions/${openSession.id}/payment-rates`) : [];
     await refreshAttendance();
 }
+
+$('#session-mode-select').addEventListener('change', async () => {
+    if (!openSession) return;
+    const newMode = $('#session-mode-select').value;
+    try {
+        openSession = await api(`/api/sessions/${openSession.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ mode: newMode }),
+        });
+        showError('');
+    } catch (err) {
+        $('#session-mode-select').value = openSession.mode; // revert the dropdown on failure
+        showError(err.message);
+    }
+});
 
 async function loadAllPlayers() {
     allPlayers = await api('/api/players');
@@ -412,6 +432,8 @@ function openCheckinModal(playerId) {
     if (!p) return;
     checkinModalPlayerId = playerId;
     $('#cm-player-name').textContent = `${p.first_name} ${p.last_name}`;
+    $('#cm-grade').value = p.skill_level;
+    $('#cm-grade-saved').style.display = 'none';
     $('#cm-edit-form').style.display = 'none';
     fillEditFormFromPlayer(p);
     $('#cm-error').style.display = 'none';
@@ -436,10 +458,28 @@ function openCheckinModal(playerId) {
 function fillEditFormFromPlayer(p) {
     $('#cm-first').value = p.first_name;
     $('#cm-last').value = p.last_name;
-    $('#cm-skill').value = p.skill_level;
     $('#cm-gender').value = p.gender || '';
     $('#cm-status').value = p.membership_status;
 }
+
+// Grade is edited directly (not behind "Edit") since it's the field staff
+// change most often - saves immediately and sticks with the player record,
+// same as any other profile edit.
+$('#cm-grade').addEventListener('change', async () => {
+    if (!checkinModalPlayerId) return;
+    try {
+        const updated = await api(`/api/players/${checkinModalPlayerId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ skill_level: $('#cm-grade').value }),
+        });
+        const idx = allPlayers.findIndex((x) => x.id === checkinModalPlayerId);
+        if (idx !== -1) allPlayers[idx] = updated;
+        $('#cm-grade-saved').style.display = 'block';
+        setTimeout(() => { $('#cm-grade-saved').style.display = 'none'; }, 1500);
+    } catch (err) {
+        showError(err.message);
+    }
+});
 
 function closeCheckinModal() {
     $('#checkin-modal-backdrop').style.display = 'none';
@@ -479,7 +519,6 @@ $('#cm-edit-save').addEventListener('click', async () => {
             body: JSON.stringify({
                 first_name,
                 last_name,
-                skill_level: $('#cm-skill').value,
                 gender: $('#cm-gender').value || null,
                 membership_status: $('#cm-status').value,
             }),
@@ -687,5 +726,20 @@ $('#np-submit').addEventListener('click', async () => {
 });
 
 $('#player-search').addEventListener('input', renderAvailableTable);
+
+$('#finish-session-btn').addEventListener('click', async () => {
+    if (!openSession) return;
+    if (!confirm(`Finish today's session (${openSession.label || 'Session'} - ${openSession.date})? This closes check-in and rounds for the day - you can start a new session afterwards.`)) return;
+    try {
+        await api(`/api/sessions/${openSession.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: 'closed' }),
+        });
+        showError('');
+        await checkSessionState();
+    } catch (err) {
+        showError(err.message);
+    }
+});
 
 init();

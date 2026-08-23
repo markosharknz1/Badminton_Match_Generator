@@ -81,6 +81,17 @@ function ensureColumns(db) {
     if (!attendanceCols.includes('new_member')) {
         db.run(`ALTER TABLE attendance ADD COLUMN new_member INTEGER NOT NULL DEFAULT 0 CHECK (new_member IN (0,1))`);
     }
+
+    const clubSettingsCols = all(db, `PRAGMA table_info(club_settings)`).map((c) => c.name);
+    const newClubSettingsCols = [
+        'smtp2go_api_key', 'smtp2go_sender_email', 'smtp2go_sender_name',
+        'square_access_token', 'square_location_id',
+    ];
+    for (const col of newClubSettingsCols) {
+        if (!clubSettingsCols.includes(col)) {
+            db.run(`ALTER TABLE club_settings ADD COLUMN ${col} TEXT`);
+        }
+    }
 }
 
 // Copies the live database to Documents\GameScheduler\backups, timestamped,

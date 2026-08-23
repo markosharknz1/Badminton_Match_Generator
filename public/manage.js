@@ -38,6 +38,47 @@ function skillBadge(skill) {
     return skill ? `<span class="badge skill-${skill}">${skill}</span>` : '';
 }
 
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function renderHistoryGameRow(g) {
+    const side = (n) => g.players
+        .filter((p) => p.side === n)
+        .map((p) => `${esc(p.first_name)} ${esc(p.last_name)}${skillBadge(p.skill_level_at_time)}`)
+        .join(' & ') || '<span class="muted">-</span>';
+    return `
+        <div class="history-game">
+            <span class="court-tag">Court ${g.court_number}</span>
+            <span class="team">${side(1)}</span>
+            <span class="vs">vs</span>
+            <span class="team">${side(2)}</span>
+            <span class="muted">${esc(g.format)}</span>
+        </div>
+    `;
+}
+
+async function openRoundsModal() {
+    try {
+        const data = await api(`/api/history/sessions/${openSession.id}`);
+        $('#rounds-modal-title').textContent = `Rounds played - ${data.session.label || 'Session'}`;
+        const body = $('#rounds-modal-body');
+        if (data.rounds.length === 0) {
+            body.innerHTML = '<p class="muted">No rounds played yet this session.</p>';
+        } else {
+            body.innerHTML = data.rounds.map((round) => `
+                <div class="round-block">
+                    <h3>Round ${round.round_number}</h3>
+                    ${round.games.map((g) => renderHistoryGameRow(g)).join('')}
+                </div>
+            `).join('');
+        }
+        $('#rounds-modal-backdrop').style.display = 'flex';
+    } catch (err) {
+        showError(err.message);
+    }
+}
+
 function courtNumberFor(courtId) {
     const c = sessionCourts.find((sc) => sc.court_id === courtId);
     return c ? c.court_number : courtId;
@@ -53,7 +94,10 @@ async function checkSessionState() {
     try {
         openSession = await api('/api/sessions/open');
         $('#no-session-panel').style.display = 'none';
-        $('#session-meta').textContent = `${openSession.label || 'Session'} - ${openSession.date} - ${openSession.mode} mode`;
+        $('#session-meta').textContent = `${openSession.label || 'Session'} - ${openSession.date}`;
+        $('#session-mode-select').value = openSession.mode;
+        $('#session-mode-select').style.display = '';
+        $('#finish-session-btn').style.display = '';
 
         if (openSession.mode === 'social') {
             // No rounds at all in social mode - the check-in screen is the whole workflow.
@@ -72,11 +116,44 @@ async function checkSessionState() {
             $('#social-panel').style.display = 'none';
             $('#manage-panel').style.display = 'none';
             $('#session-meta').textContent = 'No session open';
+            $('#session-mode-select').style.display = 'none';
+            $('#finish-session-btn').style.display = 'none';
         } else {
             showError(err.message);
         }
     }
 }
+
+$('#finish-session-btn').addEventListener('click', async () => {
+    if (!openSession) return;
+    if (!confirm(`Finish today's session (${openSession.label || 'Session'} - ${openSession.date})? This closes check-in and rounds for the day - you can start a new session afterwards.`)) return;
+    try {
+        await api(`/api/sessions/${openSession.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: 'closed' }),
+        });
+        showError('');
+        await checkSessionState();
+    } catch (err) {
+        showError(err.message);
+    }
+});
+
+$('#session-mode-select').addEventListener('change', async () => {
+    if (!openSession) return;
+    const newMode = $('#session-mode-select').value;
+    try {
+        openSession = await api(`/api/sessions/${openSession.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ mode: newMode }),
+        });
+        showError('');
+        await checkSessionState();
+    } catch (err) {
+        $('#session-mode-select').value = openSession.mode; // revert the dropdown on failure
+        showError(err.message);
+    }
+});
 
 async function refreshAll() {
     await loadRoundStatus();
@@ -170,24 +247,47 @@ async function runRoundAction(fn) {
     }
 }
 
-// --- Currently on court ---
+// --- Currently on court (browsable back through past rounds this session) ---
+let viewedRound = null;
+
+function maxViewableRound() {
+    return roundStatus.current_phase === 'game' ? roundStatus.current_round : roundStatus.next_round_number - 1;
+}
+
 async function loadActiveGames() {
     const panel = $('#active-games-panel');
-    if (roundStatus.current_phase !== 'game') {
+    const max = maxViewableRound();
+    if (max < 1) {
         panel.style.display = 'none';
+        viewedRound = null;
         return;
     }
-    const games = await api(`/api/sessions/${openSession.id}/games?status=active`);
     panel.style.display = 'block';
-    $('#active-round-number').textContent = roundStatus.current_round;
+    viewedRound = max; // jump back to the latest round whenever round status refreshes
+    await renderRoundGamesPanel();
+}
+
+async function renderRoundGamesPanel() {
+    const isLive = roundStatus.current_phase === 'game' && viewedRound === roundStatus.current_round;
+    const games = await api(`/api/sessions/${openSession.id}/games?round_number=${viewedRound}&status=${isLive ? 'active' : 'completed'}`);
+    $('#active-round-number').textContent = viewedRound;
+    $('#active-round-minus').disabled = viewedRound <= 1;
+    $('#active-round-plus').disabled = isLive;
     $('#active-games-grid').innerHTML = games.map((g) => `
         <div class="active-game-card">
             <h4>Court ${courtNumberFor(g.court_id)} <span class="muted">(${g.format})</span></h4>
             <div class="side-line"><strong>1:</strong> ${g.players.filter((p) => p.side === 1).map((p) => `${p.first_name} ${p.last_name}${skillBadge(p.skill_level_at_time)}`).join(', ')}</div>
             <div class="side-line"><strong>2:</strong> ${g.players.filter((p) => p.side === 2).map((p) => `${p.first_name} ${p.last_name}${skillBadge(p.skill_level_at_time)}`).join(', ')}</div>
         </div>
-    `).join('') || '<p class="muted">No active games.</p>';
+    `).join('') || '<p class="muted">No games recorded for this round.</p>';
 }
+
+$('#active-round-minus').addEventListener('click', () => {
+    if (viewedRound > 1) { viewedRound -= 1; renderRoundGamesPanel().catch((err) => showError(err.message)); }
+});
+$('#active-round-plus').addEventListener('click', () => {
+    if (viewedRound < maxViewableRound()) { viewedRound += 1; renderRoundGamesPanel().catch((err) => showError(err.message)); }
+});
 
 // --- Attendance pool ---
 async function loadAttendancePool() {
@@ -294,7 +394,7 @@ function renderBuilder() {
 
     poolEl.querySelectorAll('.pool-player').forEach((el) => {
         el.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', el.dataset.playerId);
+            e.dataTransfer.setData('text/plain', JSON.stringify({ playerId: Number(el.dataset.playerId) }));
         });
     });
 }
@@ -312,7 +412,7 @@ function renderCourtCard(court) {
             const playerId = ids[i];
             if (playerId !== undefined) {
                 slots.push(`
-                    <div class="slot filled">
+                    <div class="slot filled" ${isReadOnly ? '' : `draggable="true" data-court="${court.court_id}" data-side="${sideNum}" data-player="${playerId}"`}>
                         <span>${playerLabel(playerId)}${skillBadge(playerSkill(playerId))}</span>
                         ${isReadOnly ? '' : `<span class="remove-slot" data-court="${court.court_id}" data-side="${sideNum}" data-player="${playerId}">&times;</span>`}
                     </div>
@@ -368,6 +468,16 @@ function renderCourtCard(court) {
 }
 
 function wireCourtCardEvents() {
+    document.querySelectorAll('.slot.filled[draggable="true"]').forEach((el) => {
+        el.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', JSON.stringify({
+                playerId: Number(el.dataset.player),
+                fromCourt: Number(el.dataset.court),
+                fromSide: Number(el.dataset.side),
+            }));
+        });
+    });
+
     document.querySelectorAll('.side-box').forEach((box) => {
         box.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -377,10 +487,10 @@ function wireCourtCardEvents() {
         box.addEventListener('drop', (e) => {
             e.preventDefault();
             box.classList.remove('drag-over');
-            const playerId = Number(e.dataTransfer.getData('text/plain'));
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
             const courtId = Number(box.dataset.court);
             const side = Number(box.dataset.side);
-            dropPlayer(courtId, side, playerId);
+            dropPlayer(courtId, side, data.playerId, data.fromCourt, data.fromSide);
         });
     });
 
@@ -421,14 +531,39 @@ function wireCourtCardEvents() {
     });
 }
 
-function dropPlayer(courtId, side, playerId) {
+// State-only (no render) - used when a drag both removes from one spot and
+// adds to another in the same gesture, so the whole move renders once.
+function removePlayerFromCourtDraft(courtId, side, playerId) {
+    const st = buildState[courtId];
+    if (!st || (st.staged && !st.editing)) return; // read-only court, shouldn't be draggable in the first place
+    const key = side === 1 ? 'side1' : 'side2';
+    st.draft[key] = st.draft[key].filter((id) => id !== playerId);
+}
+
+// fromCourt/fromSide are only set when the drag started on another slot
+// (as opposed to the player pool) - used to move a player between courts,
+// or between sides of the same court, in one gesture. The target-capacity
+// check happens BEFORE anything is removed from the source, and always
+// against a version of this court's draft with the player already taken
+// out of wherever they currently sit in it (covers a same-court side swap
+// correctly) - so a rejected drop (target full) never loses the player from
+// their original slot. Source removal from a DIFFERENT court only happens
+// once the target is confirmed to have room.
+function dropPlayer(courtId, side, playerId, fromCourt, fromSide) {
     const st = buildState[courtId];
     if (st.staged && !st.editing) return; // read-only until Edit is clicked
     const key = side === 1 ? 'side1' : 'side2';
     const perSide = FORMAT_SIZES[st.draft.format] / 2;
-    if (st.draft[key].length >= perSide) return;
-    if (st.draft.side1.includes(playerId) || st.draft.side2.includes(playerId)) return;
-    st.draft[key] = [...st.draft[key], playerId];
+
+    const side1WithoutPlayer = st.draft.side1.filter((id) => id !== playerId);
+    const side2WithoutPlayer = st.draft.side2.filter((id) => id !== playerId);
+    const targetArr = key === 'side1' ? side1WithoutPlayer : side2WithoutPlayer;
+    if (targetArr.length >= perSide) return; // target slot has no room - reject, nothing touched yet
+
+    if (fromCourt !== undefined && fromCourt !== courtId) removePlayerFromCourtDraft(fromCourt, fromSide, playerId);
+    st.draft.side1 = side1WithoutPlayer;
+    st.draft.side2 = side2WithoutPlayer;
+    st.draft[key] = [...targetArr, playerId];
     renderBuilder();
 }
 
@@ -519,6 +654,33 @@ async function autoGenerateBuildRound() {
 }
 
 $('#auto-generate-btn').addEventListener('click', autoGenerateBuildRound);
+
+// Drag a player off a court back onto the pool sidebar to unassign them -
+// the pool itself is just "everyone minus who's placed", so removing them
+// from the court draft is all that's needed; renderBuilder() picks it up.
+// This container is never recreated (only its child list's innerHTML
+// changes on render), so it's wired once here rather than per-render.
+const poolSidebar = $('#player-pool-sidebar');
+poolSidebar.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    poolSidebar.classList.add('drag-over');
+});
+poolSidebar.addEventListener('dragleave', () => poolSidebar.classList.remove('drag-over'));
+poolSidebar.addEventListener('drop', (e) => {
+    e.preventDefault();
+    poolSidebar.classList.remove('drag-over');
+    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+    if (data.fromCourt === undefined) return; // dragged from the pool onto itself - nothing to do
+    removePlayerFromCourtDraft(data.fromCourt, data.fromSide, data.playerId);
+    renderBuilder();
+});
+
+// --- Rounds played modal ---
+$('#view-rounds-btn').addEventListener('click', openRoundsModal);
+$('#rounds-modal-close').addEventListener('click', () => { $('#rounds-modal-backdrop').style.display = 'none'; });
+$('#rounds-modal-backdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'rounds-modal-backdrop') $('#rounds-modal-backdrop').style.display = 'none';
+});
 
 // --- Round stepper ---
 $('#round-minus').addEventListener('click', () => {

@@ -144,6 +144,13 @@ CREATE TABLE IF NOT EXISTS club_settings (
     default_break_minutes INTEGER NOT NULL DEFAULT 3,
     max_capacity INTEGER,
     square_enabled INTEGER NOT NULL DEFAULT 0 CHECK (square_enabled IN (0,1)),
+    -- Credentials only, saved for future integration work - nothing in the
+    -- app actually sends email or processes payments through these yet.
+    smtp2go_api_key TEXT,
+    smtp2go_sender_email TEXT,
+    smtp2go_sender_name TEXT,
+    square_access_token TEXT,
+    square_location_id TEXT,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

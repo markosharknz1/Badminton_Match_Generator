@@ -1,5 +1,5 @@
-// Members page: browse/search/edit/delete the full player roster, import
-// players from CSV/Excel, and manage database backups.
+// Player Database page: browse/search/edit/delete the full player roster,
+// import players from CSV/Excel, and manage database backups.
 
 let allMembers = [];
 
@@ -31,12 +31,35 @@ function esc(s) {
 }
 
 // --- Club members ---
+let editingMemberId = null; // only one row editable at a time
+
 async function loadMembers() {
     allMembers = await api('/api/players');
     renderMembers();
 }
 
-function memberRowHtml(p) {
+function skillBadge(skill) {
+    return skill ? `<span class="badge skill-${skill}">${skill}</span>` : '';
+}
+
+function memberRowReadonlyHtml(p) {
+    const statusLabel = { active: 'Active', lapsed: 'Lapsed', guest: 'Guest' }[p.membership_status] || p.membership_status;
+    return `
+        <tr data-id="${p.id}">
+            <td>${esc(p.first_name)} ${esc(p.last_name)}</td>
+            <td>${skillBadge(p.skill_level)}</td>
+            <td>${p.gender || '-'}</td>
+            <td class="muted">${statusLabel}</td>
+            <td class="muted">${esc(p.membership_number || '')}</td>
+            <td>
+                <button class="small" data-action="edit-member">Edit</button>
+                <button class="small" data-action="delete-member">Delete</button>
+            </td>
+        </tr>
+    `;
+}
+
+function memberRowEditHtml(p) {
     return `
         <tr data-id="${p.id}">
             <td>
@@ -64,8 +87,8 @@ function memberRowHtml(p) {
             </td>
             <td><input type="text" data-field="membership_number" value="${esc(p.membership_number || '')}" style="width:90px;"></td>
             <td>
-                <button class="small" data-action="save-member">Save</button>
-                <button class="small" data-action="delete-member">Delete</button>
+                <button class="primary small" data-action="save-member">Save</button>
+                <button class="small" data-action="cancel-edit-member">Cancel</button>
             </td>
         </tr>
     `;
@@ -79,14 +102,17 @@ function renderMembers() {
     $('#member-count').textContent = allMembers.length;
 
     $('#members-tbody').innerHTML = filtered.length
-        ? filtered.slice().sort((a, b) => a.last_name.localeCompare(b.last_name)).map(memberRowHtml).join('')
+        ? filtered.slice().sort((a, b) => a.last_name.localeCompare(b.last_name))
+            .map((p) => (p.id === editingMemberId ? memberRowEditHtml(p) : memberRowReadonlyHtml(p))).join('')
         : `<tr class="empty-row"><td colspan="6" class="muted">${query ? 'No matching members.' : 'No members yet.'}</td></tr>`;
 
     document.querySelectorAll('#members-tbody button[data-action]').forEach((btn) => {
         const tr = btn.closest('tr');
         const id = Number(tr.dataset.id);
         btn.addEventListener('click', () => {
-            if (btn.dataset.action === 'save-member') saveMemberRow(id, tr);
+            if (btn.dataset.action === 'edit-member') { editingMemberId = id; renderMembers(); }
+            else if (btn.dataset.action === 'cancel-edit-member') { editingMemberId = null; renderMembers(); }
+            else if (btn.dataset.action === 'save-member') saveMemberRow(id, tr);
             else deleteMemberRow(id, tr);
         });
     });
@@ -112,6 +138,7 @@ async function saveMemberRow(id, tr) {
                 membership_number: field('membership_number') || null,
             }),
         });
+        editingMemberId = null;
         showError('');
         await loadMembers();
     } catch (err) {
@@ -120,7 +147,7 @@ async function saveMemberRow(id, tr) {
 }
 
 async function deleteMemberRow(id, tr) {
-    const name = `${tr.querySelector('[data-field="first_name"]').value} ${tr.querySelector('[data-field="last_name"]').value}`;
+    const name = `${tr.querySelector('td').textContent.trim()}`;
     if (!confirm(`Delete ${name}? This cannot be undone.`)) return;
     try {
         await api(`/api/players/${id}`, { method: 'DELETE' });

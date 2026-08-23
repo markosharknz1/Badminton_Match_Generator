@@ -16,12 +16,20 @@
         <a href="/checkin.html">Check-in</a>
         <a href="/manage.html" class="active">Rounds</a>
         <a href="/display.html" target="_blank">Display</a>
-        <a href="/club.html">Club Settings</a>
-        <a href="/members.html">Members</a>
+        <a href="/members.html">Player Database</a>
         <a href="/history.html">History</a>
+        <a href="/club.html">Settings</a>
     </nav>
     <button type="button" id="install-app-btn" class="install-btn" style="display:none;">+ Install app</button>
-    <div class="session-meta" id="session-meta"></div>
+    <div class="session-meta">
+        <span id="session-meta"></span>
+        <select id="session-mode-select" style="display:none;">
+            <option value="manual">Manual mode</option>
+            <option value="auto">Automatic mode</option>
+            <option value="social">Social mode</option>
+        </select>
+        <button type="button" class="small danger" id="finish-session-btn" style="display:none;">Finish session</button>
+    </div>
 </header>
 
 <main class="wide">
@@ -44,11 +52,19 @@
                 <span class="phase-badge" id="phase-badge">idle</span>
                 <span class="muted" id="phase-detail"></span>
                 <button class="primary" id="round-action-btn"></button>
+                <button id="view-rounds-btn">View rounds played</button>
             </div>
         </div>
 
         <div class="panel" id="active-games-panel" style="display:none;">
-            <h2>Currently on court - round <span id="active-round-number"></span></h2>
+            <h2>
+                Currently on court
+                <span class="round-stepper">
+                    <button class="small" id="active-round-minus">&lsaquo;</button>
+                    round <span id="active-round-number"></span>
+                    <button class="small" id="active-round-plus">&rsaquo;</button>
+                </span>
+            </h2>
             <div class="active-games-grid" id="active-games-grid"></div>
         </div>
 
@@ -68,7 +84,7 @@
 
             <div class="builder-layout">
                 <div class="courts-grid" id="courts-grid"></div>
-                <div class="player-pool-sidebar">
+                <div class="player-pool-sidebar" id="player-pool-sidebar">
                     <h3>Player pool <span class="count-pill" id="pool-count">0</span></h3>
                     <div class="player-pool-list" id="player-pool"></div>
                 </div>
@@ -76,6 +92,16 @@
         </div>
     </section>
 </main>
+
+<div id="rounds-modal-backdrop" class="modal-backdrop" style="display:none;">
+    <div class="modal wide">
+        <h3 id="rounds-modal-title">Rounds played</h3>
+        <div id="rounds-modal-body"></div>
+        <div class="row" style="justify-content: flex-end;">
+            <button id="rounds-modal-close">Close</button>
+        </div>
+    </div>
+</div>
 
 <script src="/events.js"></script>
 <script src="/manage.js"></script>

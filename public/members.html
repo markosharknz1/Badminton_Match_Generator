@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Members - Game Scheduler</title>
+<title>Player Database - Game Scheduler</title>
 <link rel="stylesheet" href="/style.css">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/icons/icon-192.png">
@@ -16,19 +16,19 @@
         <a href="/checkin.html">Check-in</a>
         <a href="/manage.html">Rounds</a>
         <a href="/display.html" target="_blank">Display</a>
-        <a href="/club.html">Club Settings</a>
-        <a href="/members.html" class="active">Members</a>
+        <a href="/members.html" class="active">Player Database</a>
         <a href="/history.html">History</a>
+        <a href="/club.html">Settings</a>
     </nav>
     <button type="button" id="install-app-btn" class="install-btn" style="display:none;">+ Install app</button>
-    <div class="session-meta">Club members &amp; database</div>
+    <div class="session-meta">Player database</div>
 </header>
 
 <main>
     <div id="error-banner" class="error-banner" style="display:none;"></div>
 
     <section class="panel">
-        <h2>Club members <span class="count-pill" id="member-count">0</span></h2>
+        <h2>Player database <span class="count-pill" id="member-count">0</span></h2>
         <div class="field">
             <label for="member-search">Search by name</label>
             <input type="text" id="member-search" placeholder="Start typing a name..." autocomplete="off">
