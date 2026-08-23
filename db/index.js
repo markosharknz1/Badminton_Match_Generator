@@ -1,9 +1,12 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const initSqlJs = require('sql.js');
 
 const DB_PATH = path.join(__dirname, '..', 'game_scheduler.db');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
+const BACKUP_DIR = path.join(os.homedir(), 'Documents', 'GameScheduler', 'backups');
+const BACKUPS_TO_KEEP = 30; // roughly a month of daily backups before old ones are pruned
 
 let SQL = null;
 
@@ -80,6 +83,47 @@ function ensureColumns(db) {
     }
 }
 
+// Copies the live database to Documents\GameScheduler\backups, timestamped,
+// so real club data isn't only ever stored in one place. Runs once per
+// server boot (see db/store.js) - club nights happen periodically, not
+// continuously, so "one backup per launch" gives a natural daily-ish
+// cadence without spamming a backup on every single write. Prunes down to
+// the newest BACKUPS_TO_KEEP afterward so the folder doesn't grow forever.
+// Never throws - a failed backup (e.g. no Documents folder, disk full)
+// should never stop the app from starting.
+function backupToDocuments() {
+    try {
+        if (!fs.existsSync(DB_PATH)) return null;
+        fs.mkdirSync(BACKUP_DIR, { recursive: true });
+
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupPath = path.join(BACKUP_DIR, `game_scheduler_${stamp}.db`);
+        fs.copyFileSync(DB_PATH, backupPath);
+
+        const files = fs.readdirSync(BACKUP_DIR)
+            .filter((f) => f.startsWith('game_scheduler_') && f.endsWith('.db'))
+            .sort(); // ISO timestamps in the filename sort chronologically
+        const toDelete = files.slice(0, Math.max(0, files.length - BACKUPS_TO_KEEP));
+        for (const f of toDelete) fs.unlinkSync(path.join(BACKUP_DIR, f));
+
+        return backupPath;
+    } catch (err) {
+        console.error('Backup to Documents failed (non-fatal):', err.message);
+        return null;
+    }
+}
+
+function listBackups() {
+    if (!fs.existsSync(BACKUP_DIR)) return [];
+    return fs.readdirSync(BACKUP_DIR)
+        .filter((f) => f.startsWith('game_scheduler_') && f.endsWith('.db'))
+        .map((f) => {
+            const stat = fs.statSync(path.join(BACKUP_DIR, f));
+            return { name: f, size_bytes: stat.size, created_at: stat.mtime.toISOString() };
+        })
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
 // Runs a SELECT and returns an array of plain row objects.
 function all(db, sql, params = []) {
     const stmt = db.prepare(sql);
@@ -97,4 +141,7 @@ function get(db, sql, params = []) {
     return rows[0] || null;
 }
 
-module.exports = { DB_PATH, SCHEMA_PATH, openDb, applySchema, saveDb, all, get, ensureBaselineDefaults, ensureColumns };
+module.exports = {
+    DB_PATH, SCHEMA_PATH, BACKUP_DIR, openDb, applySchema, saveDb, all, get,
+    ensureBaselineDefaults, ensureColumns, backupToDocuments, listBackups,
+};

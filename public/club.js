@@ -1,5 +1,6 @@
-// Club management page: club settings, permanent courts roster, skill
-// compatibility matrix, session templates, and CSV player import.
+// Club Settings page: club settings, permanent courts roster, skill
+// compatibility matrix, payment categories, and session templates. Player
+// roster management and CSV/Excel import live on the separate Members page.
 
 const GRADES = ['A', 'B', 'C', 'D', 'E'];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -366,79 +367,6 @@ $('#template-add').addEventListener('click', () => {
     templates.push({ label: '', day_of_week: 'Mon', default_mode: 'manual', courts: [] });
     renderTemplates();
 });
-
-// --- CSV / Excel import ---
-let xlsxFile = null; // set when the chosen file is .xlsx; takes priority over pasted CSV text
-
-$('#import-file').addEventListener('change', () => {
-    const file = $('#import-file').files[0];
-    if (!file) return;
-    if (file.name.toLowerCase().endsWith('.xlsx')) {
-        xlsxFile = file;
-        $('#import-text').value = '';
-        $('#import-text-field').style.display = 'none';
-        return;
-    }
-    xlsxFile = null;
-    $('#import-text-field').style.display = '';
-    const reader = new FileReader();
-    reader.onload = () => { $('#import-text').value = reader.result; };
-    reader.readAsText(file);
-});
-
-async function runImport(commit) {
-    const membershipStatus = $('#import-status').value;
-    try {
-        let result;
-        if (xlsxFile) {
-            const bytes = await xlsxFile.arrayBuffer();
-            result = await api(`/api/players/import-xlsx?membership_status=${membershipStatus}&commit=${commit}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/octet-stream' },
-                body: bytes,
-            });
-        } else {
-            const csvText = $('#import-text').value.trim();
-            if (!csvText) {
-                showError('Choose a CSV/Excel file or paste CSV text first.');
-                return;
-            }
-            result = await api('/api/players/import', {
-                method: 'POST',
-                body: JSON.stringify({ csv_text: csvText, membership_status: membershipStatus, commit }),
-            });
-        }
-        showError('');
-        renderImportResult(result);
-    } catch (err) {
-        showError(err.message);
-    }
-}
-
-$('#import-preview').addEventListener('click', () => runImport(false));
-
-function renderImportResult(r) {
-    const container = $('#import-result');
-    const listItems = (arr, fmt) => arr.length ? `<ul>${arr.map(fmt).join('')}</ul>` : '<p class="muted" style="margin:0;">None</p>';
-    container.innerHTML = `
-        ${r.committed ? `<div class="bucket create"><h4>Imported ${r.created} player${r.created === 1 ? '' : 's'}${r.defaulted_skill ? ` (${r.defaulted_skill} defaulted to skill C - review their grades)` : ''}</h4></div>` : ''}
-        <div class="bucket create">
-            <h4>${r.committed ? 'Created' : 'Will create'} (${r.to_create.length})</h4>
-            ${listItems(r.to_create, (i) => `<li>Row ${i.row}: ${i.name}${i.email ? ` &lt;${i.email}&gt;` : ''}</li>`)}
-        </div>
-        <div class="bucket skip">
-            <h4>Skipped - already exist (${r.to_skip.length})</h4>
-            ${listItems(r.to_skip, (i) => `<li>Row ${i.row}: ${i.name} (${i.reason})</li>`)}
-        </div>
-        <div class="bucket review">
-            <h4>Needs manual review - not imported (${r.to_review.length})</h4>
-            ${listItems(r.to_review, (i) => `<li>Row ${i.row}: ${i.name} (${i.email || 'no email'}, ${i.dob || 'no DOB'}) - possible duplicate of ${i.candidates.map((c) => `#${c.id} ${c.name}`).join(', ')}</li>`)}
-        </div>
-        ${!r.committed && r.to_create.length > 0 ? `<button class="primary" id="import-commit">Import ${r.to_create.length} new player${r.to_create.length === 1 ? '' : 's'}</button>` : ''}
-    `;
-    const commitBtn = $('#import-commit');
-    if (commitBtn) commitBtn.addEventListener('click', () => runImport(true));
-}
 
 // --- Boot ---
 async function init() {

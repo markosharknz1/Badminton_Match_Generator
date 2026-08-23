@@ -3,11 +3,11 @@
 // and satisfies PWA installability. API calls always go to the network -
 // this is a live local server app, not something meant to work truly
 // offline, so caching API responses would just show stale data.
-const CACHE_NAME = 'game-scheduler-shell-v1';
+const CACHE_NAME = 'game-scheduler-shell-v2';
 const SHELL_FILES = [
-    '/checkin.html', '/manage.html', '/display.html', '/club.html', '/history.html',
+    '/checkin.html', '/manage.html', '/display.html', '/club.html', '/members.html', '/history.html',
     '/style.css', '/events.js', '/pwa.js',
-    '/checkin.js', '/manage.js', '/display.js', '/club.js', '/history.js',
+    '/checkin.js', '/manage.js', '/display.js', '/club.js', '/members.js', '/history.js',
     '/manifest.json',
 ];
 

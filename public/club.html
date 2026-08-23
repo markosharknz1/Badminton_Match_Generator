@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Club - Game Scheduler</title>
+<title>Club Settings - Game Scheduler</title>
 <link rel="stylesheet" href="/style.css">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/icons/icon-192.png">
@@ -16,7 +16,8 @@
         <a href="/checkin.html">Check-in</a>
         <a href="/manage.html">Rounds</a>
         <a href="/display.html" target="_blank">Display</a>
-        <a href="/club.html" class="active">Club</a>
+        <a href="/club.html" class="active">Club Settings</a>
+        <a href="/members.html">Members</a>
         <a href="/history.html">History</a>
     </nav>
     <button type="button" id="install-app-btn" class="install-btn" style="display:none;">+ Install app</button>
@@ -87,33 +88,6 @@
         <p class="muted">What "normally" happens on each day. Starting a session copies these defaults; changing a template never affects sessions already run.</p>
         <div id="template-list"></div>
         <button id="template-add">+ Add template</button>
-    </section>
-
-    <section class="panel">
-        <h2>Import players</h2>
-        <p class="muted">CSV columns: first_name, last_name, email, phone, dob, skill_level, gender, membership_number. Or upload the club's membership Excel export directly (Rego #, Full Name, Gender, Mbshp Type, Status - Comp A/B/C maps to skill grade, others default to C for review). Existing players are never overwritten - exact matches are skipped and near-matches flagged for review.</p>
-        <div class="field">
-            <label>CSV or Excel (.xlsx) file</label>
-            <input type="file" id="import-file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-        </div>
-        <div class="field" id="import-text-field">
-            <label>Or paste CSV text</label>
-            <textarea id="import-text" placeholder="first_name,last_name,email,..."></textarea>
-        </div>
-        <div class="row">
-            <div class="field">
-                <label>Membership status for all imported players</label>
-                <select id="import-status">
-                    <option value="active">Active member</option>
-                    <option value="lapsed">Lapsed member</option>
-                    <option value="guest">Guest</option>
-                </select>
-            </div>
-            <div class="field" style="align-self: flex-end;">
-                <button class="primary" id="import-preview">Preview import</button>
-            </div>
-        </div>
-        <div id="import-result" class="import-buckets"></div>
     </section>
 </main>
 

@@ -17,6 +17,7 @@ const skillCompatibilityRouter = require('./routes/skillCompatibility');
 const historyRouter = require('./routes/history');
 const exportRouter = require('./routes/export');
 const paymentCategoriesRouter = require('./routes/paymentCategories');
+const backupRouter = require('./routes/backup');
 const scheduler = require('./lib/scheduler');
 
 const PORT = process.env.PORT || 4000;
@@ -54,6 +55,7 @@ async function main() {
     app.use('/api/history', historyRouter);
     app.use('/api/export', exportRouter);
     app.use('/api/payment-categories', paymentCategoriesRouter);
+    app.use('/api/backup', backupRouter);
 
     app.use(express.static(path.join(__dirname, 'public')));
     app.get('/', (req, res) => res.redirect('/checkin.html'));
