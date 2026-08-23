@@ -68,6 +68,18 @@ function ensureBaselineDefaults(db) {
     }
 }
 
+// Adds columns introduced after a database was first created, since
+// `CREATE TABLE IF NOT EXISTS` in schema.sql only affects brand-new tables -
+// it never retrofits an existing one. Additive-only and idempotent (checks
+// PRAGMA table_info first), so it's always safe to call on every server boot
+// alongside ensureBaselineDefaults, and never touches existing data.
+function ensureColumns(db) {
+    const attendanceCols = all(db, `PRAGMA table_info(attendance)`).map((c) => c.name);
+    if (!attendanceCols.includes('new_member')) {
+        db.run(`ALTER TABLE attendance ADD COLUMN new_member INTEGER NOT NULL DEFAULT 0 CHECK (new_member IN (0,1))`);
+    }
+}
+
 // Runs a SELECT and returns an array of plain row objects.
 function all(db, sql, params = []) {
     const stmt = db.prepare(sql);
@@ -85,4 +97,4 @@ function get(db, sql, params = []) {
     return rows[0] || null;
 }
 
-module.exports = { DB_PATH, SCHEMA_PATH, openDb, applySchema, saveDb, all, get, ensureBaselineDefaults };
+module.exports = { DB_PATH, SCHEMA_PATH, openDb, applySchema, saveDb, all, get, ensureBaselineDefaults, ensureColumns };

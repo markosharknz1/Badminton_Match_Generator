@@ -72,7 +72,7 @@ router.put('/attendance/:id', (req, res) => {
     }
     try {
         store.run(
-            `UPDATE attendance SET state=?, left_reason=?, payment_category_id=?, payment_amount_cents=?, payment_note=?, first_time=?
+            `UPDATE attendance SET state=?, left_reason=?, payment_category_id=?, payment_amount_cents=?, payment_note=?, first_time=?, new_member=?
              WHERE id=?`,
             [
                 merged.state,
@@ -81,6 +81,7 @@ router.put('/attendance/:id', (req, res) => {
                 merged.payment_amount_cents ?? null,
                 merged.payment_note ?? null,
                 merged.first_time ? 1 : 0,
+                merged.new_member ? 1 : 0,
                 req.params.id,
             ]
         );

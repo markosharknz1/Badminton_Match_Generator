@@ -2,7 +2,7 @@
 // Every mutating call persists to disk immediately (persist()) - this is a
 // single-writer local app, not a high-throughput server, so simplicity and
 // durability win over batching writes.
-const { openDb, applySchema, saveDb, ensureBaselineDefaults, all, get } = require('./index');
+const { openDb, applySchema, saveDb, ensureBaselineDefaults, ensureColumns, all, get } = require('./index');
 
 let db = null;
 
@@ -10,6 +10,7 @@ async function init() {
     db = await openDb();
     applySchema(db); // safety net if db:init was never run
     ensureBaselineDefaults(db); // self-heals a schema-only DB (e.g. demo data declined at install)
+    ensureColumns(db); // retrofits columns added after this DB was first created
     saveDb(db);
     return db;
 }

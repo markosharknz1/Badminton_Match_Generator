@@ -102,11 +102,15 @@
             <label>Category</label>
             <select id="pm-category"></select>
         </div>
+        <div class="field"><label>Amount ($)</label><input type="number" id="pm-amount" min="0" step="0.01"></div>
         <div class="row">
-            <div class="field"><label>Amount ($)</label><input type="number" id="pm-amount" min="0" step="0.01"></div>
-            <div class="field checkbox-row" style="align-self:flex-end; padding-bottom:10px;">
+            <div class="field checkbox-row">
                 <input type="checkbox" id="pm-first-time">
                 <label for="pm-first-time">First time visitor</label>
+            </div>
+            <div class="field checkbox-row">
+                <input type="checkbox" id="pm-new-member">
+                <label for="pm-new-member">New member</label>
             </div>
         </div>
         <div class="field">
@@ -163,6 +167,17 @@
             <hr>
         </div>
 
+        <div class="row">
+            <div class="field checkbox-row">
+                <input type="checkbox" id="cm-first-time">
+                <label for="cm-first-time">First time visitor</label>
+            </div>
+            <div class="field checkbox-row">
+                <input type="checkbox" id="cm-new-member">
+                <label for="cm-new-member">New member</label>
+            </div>
+        </div>
+
         <div id="cm-payment-section">
             <div class="field">
                 <label>Payment</label>
@@ -170,12 +185,9 @@
                     <option value="" selected>Select payment&hellip;</option>
                 </select>
             </div>
-            <div class="row">
-                <div class="field"><label>Amount ($)</label><input type="number" id="cm-amount" min="0" step="0.01"></div>
-                <div class="field checkbox-row" style="align-self:flex-end; padding-bottom:10px;">
-                    <input type="checkbox" id="cm-first-time">
-                    <label for="cm-first-time">First time visitor</label>
-                </div>
+            <div class="field">
+                <label>Amount ($)</label>
+                <input type="number" id="cm-amount" min="0" step="0.01">
             </div>
             <div class="field">
                 <label>Note</label>

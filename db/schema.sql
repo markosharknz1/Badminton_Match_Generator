@@ -106,7 +106,8 @@ CREATE TABLE IF NOT EXISTS attendance (
     payment_category_id INTEGER REFERENCES payment_categories(id),
     payment_amount_cents INTEGER,
     payment_note TEXT,
-    first_time INTEGER NOT NULL DEFAULT 0 CHECK (first_time IN (0,1))
+    first_time INTEGER NOT NULL DEFAULT 0 CHECK (first_time IN (0,1)),
+    new_member INTEGER NOT NULL DEFAULT 0 CHECK (new_member IN (0,1))
 );
 
 CREATE TABLE IF NOT EXISTS games (

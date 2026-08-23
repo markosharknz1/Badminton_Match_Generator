@@ -319,13 +319,18 @@ function renderAvailableTable() {
         `).join('');
 }
 
+function memberFlagBadges(a) {
+    const firstTime = a.first_time ? '<span class="first-time-badge">1st</span>' : '';
+    const newMember = a.new_member ? '<span class="first-time-badge">New</span>' : '';
+    return `${firstTime}${newMember}`;
+}
+
 function paymentCellHtml(a) {
-    const firstTimeTag = a.first_time ? '<span class="first-time-badge">1st</span>' : '';
     if (a.payment_category_id) {
         const cls = (a.payment_amount_cents ?? 0) === 0 ? 'free' : '';
-        return `<span class="payment-badge ${cls}">${esc(a.payment_category_name || 'Paid')} ${formatCents(a.payment_amount_cents)}</span>${firstTimeTag}`;
+        return `<span class="payment-badge ${cls}">${esc(a.payment_category_name || 'Paid')} ${formatCents(a.payment_amount_cents)}</span>`;
     }
-    return `<span class="payment-badge unpaid">Unpaid</span>${firstTimeTag}`;
+    return '<span class="payment-badge unpaid">Unpaid</span>';
 }
 
 function renderHereTable() {
@@ -343,7 +348,7 @@ function renderHereTable() {
         .sort((a, b) => a.last_name.localeCompare(b.last_name))
         .map((a) => `
             <tr data-attendance-id="${a.id}" data-player-id="${a.player_id}">
-                <td>${a.first_name} ${a.last_name}</td>
+                <td>${a.first_name} ${a.last_name} ${memberFlagBadges(a)}</td>
                 <td>${skillBadge(a.skill_level)}</td>
                 <td class="muted">${a.state === 'playing' ? 'playing' : 'waiting'}</td>
                 ${paymentTrackingEnabled ? `<td class="payment-cell">${paymentCellHtml(a)}</td>` : ''}
@@ -410,6 +415,8 @@ function openCheckinModal(playerId) {
     $('#cm-edit-form').style.display = 'none';
     fillEditFormFromPlayer(p);
     $('#cm-error').style.display = 'none';
+    $('#cm-first-time').checked = false;
+    $('#cm-new-member').checked = false;
 
     if (paymentTrackingEnabled) {
         $('#cm-payment-section').style.display = 'block';
@@ -418,7 +425,6 @@ function openCheckinModal(playerId) {
             + sessionPaymentRates.map((r) => `<option value="${r.payment_category_id}" data-cents="${r.amount_cents}">${esc(r.name)} - ${formatCents(r.amount_cents)}</option>`).join('');
         $('#cm-amount').value = '';
         $('#cm-note').value = '';
-        $('#cm-first-time').checked = false;
         $('#cm-hint').style.display = 'none';
     } else {
         $('#cm-payment-section').style.display = 'none';
@@ -526,20 +532,26 @@ $('#cm-checkin').addEventListener('click', async () => {
         amountCents = Math.round(amountDollars * 100);
     }
 
+    const firstTime = $('#cm-first-time').checked;
+    const newMember = $('#cm-new-member').checked;
+    const patch = {};
+    if (paymentTrackingEnabled) {
+        patch.payment_category_id = categoryId;
+        patch.payment_amount_cents = amountCents;
+        patch.payment_note = $('#cm-note').value.trim() || null;
+    }
+    if (firstTime) patch.first_time = true;
+    if (newMember) patch.new_member = true;
+
     try {
         const newAttendance = await api(`/api/sessions/${openSession.id}/attendance`, {
             method: 'POST',
             body: JSON.stringify({ player_id: playerId }),
         });
-        if (paymentTrackingEnabled) {
+        if (Object.keys(patch).length > 0) {
             await api(`/api/attendance/${newAttendance.id}`, {
                 method: 'PUT',
-                body: JSON.stringify({
-                    payment_category_id: categoryId,
-                    payment_amount_cents: amountCents,
-                    payment_note: $('#cm-note').value.trim() || null,
-                    first_time: $('#cm-first-time').checked,
-                }),
+                body: JSON.stringify(patch),
             });
         }
         closeCheckinModal();
@@ -583,6 +595,7 @@ function openPaymentModal(attendanceId) {
     $('#pm-amount').value = a.payment_amount_cents != null ? (a.payment_amount_cents / 100).toFixed(2) : ((selectedRate.amount_cents) / 100).toFixed(2);
     $('#pm-note').value = a.payment_note || '';
     $('#pm-first-time').checked = !!a.first_time;
+    $('#pm-new-member').checked = !!a.new_member;
     updatePaymentHint();
     $('#payment-modal-backdrop').style.display = 'flex';
 }
@@ -627,6 +640,7 @@ $('#pm-save').addEventListener('click', async () => {
                 payment_amount_cents: Math.round(amountDollars * 100),
                 payment_note: $('#pm-note').value.trim() || null,
                 first_time: $('#pm-first-time').checked,
+                new_member: $('#pm-new-member').checked,
             }),
         });
         closePaymentModal();
