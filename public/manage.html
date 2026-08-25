@@ -15,13 +15,13 @@
     <nav class="app-nav">
         <a href="/checkin.html">Check-in</a>
         <a href="/manage.html" class="active">Rounds</a>
-        <a href="/display.html" target="_blank">Display</a>
         <a href="/members.html">Player Database</a>
         <a href="/history.html">History</a>
         <a href="/club.html">Settings</a>
     </nav>
     <button type="button" id="install-app-btn" class="install-btn" style="display:none;">+ Install app</button>
     <div class="session-meta">
+        <a href="/display.html" target="_blank" class="external-display-link">External Display</a>
         <span id="session-meta"></span>
         <select id="session-mode-select" style="display:none;">
             <option value="manual">Manual mode</option>
@@ -50,6 +50,7 @@
             <h2>Round status</h2>
             <div class="round-controls">
                 <span class="phase-badge" id="phase-badge">idle</span>
+                <span class="mode-badge" id="mode-badge"></span>
                 <span class="muted" id="phase-detail"></span>
                 <button class="primary" id="round-action-btn"></button>
                 <button id="view-rounds-btn">View rounds played</button>
@@ -58,7 +59,7 @@
 
         <div class="panel" id="active-games-panel" style="display:none;">
             <h2>
-                Currently on court
+                <span id="active-games-heading-label">Currently on court</span>
                 <span class="round-stepper">
                     <button class="small" id="active-round-minus">&lsaquo;</button>
                     round <span id="active-round-number"></span>
@@ -104,6 +105,8 @@
 </div>
 
 <script src="/events.js"></script>
+<script src="/branding.js"></script>
+<script src="/roundBuilder.js"></script>
 <script src="/manage.js"></script>
 <script src="/pwa.js"></script>
 </body>

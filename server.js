@@ -18,6 +18,7 @@ const historyRouter = require('./routes/history');
 const exportRouter = require('./routes/export');
 const paymentCategoriesRouter = require('./routes/paymentCategories');
 const backupRouter = require('./routes/backup');
+const brandingRouter = require('./routes/branding');
 const scheduler = require('./lib/scheduler');
 
 const PORT = process.env.PORT || 4000;
@@ -56,6 +57,17 @@ async function main() {
     app.use('/api/export', exportRouter);
     app.use('/api/payment-categories', paymentCategoriesRouter);
     app.use('/api/backup', backupRouter);
+    app.use('/api/branding', brandingRouter);
+
+    // sw.js's own network-first fetch handler only helps once it's actually
+    // running the latest version of itself - if the browser's ordinary HTTP
+    // cache serves a stale copy of the *script file* on registration/update,
+    // the whole "always get fresh files" mechanism silently reinstalls its
+    // own old self forever. Force every fetch of sw.js to revalidate.
+    app.get('/sw.js', (req, res) => {
+        res.set('Cache-Control', 'no-cache');
+        res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+    });
 
     app.use(express.static(path.join(__dirname, 'public')));
     app.get('/', (req, res) => res.redirect('/checkin.html'));

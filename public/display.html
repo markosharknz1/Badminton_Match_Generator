@@ -139,6 +139,21 @@ h1 { font-size: 3.4vmin; margin: 0; }
     font-size: 4.6vmin;
     font-weight: 800;
     color: var(--accent);
+    display: flex;
+    align-items: baseline;
+    gap: 1.2vmin;
+}
+/* A staged-but-not-started court shown during the break, so players can walk
+   straight to it once time's up instead of waiting to be told where to go. */
+.court.up-next {
+    border-color: var(--break);
+}
+.up-next-badge {
+    font-size: 1.8vmin;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--break);
 }
 .court .team {
     display: flex;
@@ -233,6 +248,7 @@ h1 { font-size: 3.4vmin; margin: 0; }
 </div>
 
 <script src="/events.js"></script>
+<script src="/branding.js"></script>
 <script src="/display.js"></script>
 <script src="/pwa.js"></script>
 </body>

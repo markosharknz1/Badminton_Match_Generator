@@ -130,18 +130,21 @@ function tickCountdown() {
 function renderCourts() {
     const d = displayData;
     const gamesByCourt = new Map(d.active_games.map((g) => [g.court_id, g]));
+    const nextByCourt = new Map((d.next_round_games || []).map((g) => [g.court_id, g]));
     $('#courts').innerHTML = d.courts.map((c) => {
         const game = gamesByCourt.get(c.court_id);
-        if (!game) {
+        const upNext = !game ? nextByCourt.get(c.court_id) : null;
+        const shown = game || upNext;
+        if (!shown) {
             return `<div class="court free"><span>Court ${c.court_number} - free</span></div>`;
         }
-        const side = (n) => game.players
+        const side = (n) => shown.players
             .filter((p) => p.side === n)
             .map((p) => `<div class="player-name">${playerName(p)}</div>`)
             .join('');
         return `
-            <div class="court">
-                <h2>Court ${c.court_number}</h2>
+            <div class="court ${upNext ? 'up-next' : ''}">
+                <h2>Court ${c.court_number}${upNext ? ' <span class="up-next-badge">Up next</span>' : ''}</h2>
                 <div class="team">${side(1)}</div>
                 <div class="team">${side(2)}</div>
             </div>
@@ -172,3 +175,6 @@ countdownHandle = setInterval(() => {
 tickClock();
 
 refresh();
+// No club_name element on this page by design (see PROGRESS.md), but the
+// tab/window still gets the right favicon.
+api('/api/club-settings').then(applyBranding).catch(() => {});

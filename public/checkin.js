@@ -83,6 +83,7 @@ async function init() {
     try {
         const club = await api('/api/club-settings');
         $('#club-name').textContent = club.club_name;
+        applyBranding(club);
         paymentTrackingEnabled = !!club.square_enabled;
     } catch (err) {
         // Club settings should always exist (seeded row id=1); non-fatal if it fails.
@@ -418,12 +419,19 @@ $('#available-tbody').addEventListener('click', (e) => {
 function openAddPlayerForm(prefillFullName) {
     const form = $('#add-player-form');
     form.style.display = 'block';
-    if (prefillFullName) {
-        const parts = prefillFullName.trim().split(/\s+/);
-        $('#np-first').value = parts[0] || '';
-        $('#np-last').value = parts.slice(1).join(' ') || '';
-    }
-    $('#np-first').focus();
+    if (prefillFullName) $('#np-name').value = prefillFullName.trim();
+    $('#np-name').focus();
+}
+
+// Splits "Joe Bloggs" -> {first: "Joe", last: "Bloggs"}; "Joe Van Bloggs" ->
+// {first: "Joe", last: "Van Bloggs"} (first word is the first name, the rest
+// - however many words - is the last name). Returns null if there's no space
+// at all, since a last name is required.
+function splitFullName(fullName) {
+    const trimmed = fullName.trim().replace(/\s+/g, ' ');
+    const spaceIdx = trimmed.indexOf(' ');
+    if (spaceIdx === -1) return null;
+    return { first: trimmed.slice(0, spaceIdx), last: trimmed.slice(spaceIdx + 1) };
 }
 
 // --- Check-in modal (double-click an available player) ---
@@ -434,22 +442,34 @@ function openCheckinModal(playerId) {
     $('#cm-player-name').textContent = `${p.first_name} ${p.last_name}`;
     $('#cm-grade').value = p.skill_level;
     $('#cm-grade-saved').style.display = 'none';
+    $('#cm-gender-quick').value = p.gender || '';
+    $('#cm-gender-saved').style.display = 'none';
     $('#cm-edit-form').style.display = 'none';
     fillEditFormFromPlayer(p);
     $('#cm-error').style.display = 'none';
-    $('#cm-first-time').checked = false;
-    $('#cm-new-member').checked = false;
+    $('#cm-visitor-new-member').checked = false;
+
+    if (paymentTrackingEnabled && sessionPaymentRates.length === 0) {
+        // Should be rare now that a new session always gets seeded with at
+        // least the club's active categories (see routes/sessions.js), but
+        // stay safe if a club deactivates every category mid-session - a
+        // dead-end empty dropdown is worse than a clear message here.
+        showError('This session has no payment categories configured, so nobody can be checked in. Add rates on the Club page, or ask an admin to fix this session\'s pricing.');
+        return;
+    }
 
     if (paymentTrackingEnabled) {
         $('#cm-payment-section').style.display = 'block';
+        $('#cm-note-section').style.display = 'block';
         const select = $('#cm-category');
         select.innerHTML = '<option value="" selected>Select payment&hellip;</option>'
-            + sessionPaymentRates.map((r) => `<option value="${r.payment_category_id}" data-cents="${r.amount_cents}">${esc(r.name)} - ${formatCents(r.amount_cents)}</option>`).join('');
+            + sessionPaymentRates.map((r) => `<option value="${r.payment_category_id}" data-cents="${r.amount_cents}">${esc(r.name)}${r.amount_cents > 0 ? ` - ${formatCents(r.amount_cents)}` : ''}</option>`).join('');
         $('#cm-amount').value = '';
         $('#cm-note').value = '';
         $('#cm-hint').style.display = 'none';
     } else {
         $('#cm-payment-section').style.display = 'none';
+        $('#cm-note-section').style.display = 'none';
     }
 
     $('#checkin-modal-backdrop').style.display = 'flex';
@@ -458,7 +478,6 @@ function openCheckinModal(playerId) {
 function fillEditFormFromPlayer(p) {
     $('#cm-first').value = p.first_name;
     $('#cm-last').value = p.last_name;
-    $('#cm-gender').value = p.gender || '';
     $('#cm-status').value = p.membership_status;
 }
 
@@ -476,6 +495,23 @@ $('#cm-grade').addEventListener('change', async () => {
         if (idx !== -1) allPlayers[idx] = updated;
         $('#cm-grade-saved').style.display = 'block';
         setTimeout(() => { $('#cm-grade-saved').style.display = 'none'; }, 1500);
+    } catch (err) {
+        showError(err.message);
+    }
+});
+
+// Gender, same pattern as Grade above - edited directly, saves immediately.
+$('#cm-gender-quick').addEventListener('change', async () => {
+    if (!checkinModalPlayerId) return;
+    try {
+        const updated = await api(`/api/players/${checkinModalPlayerId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ gender: $('#cm-gender-quick').value || null }),
+        });
+        const idx = allPlayers.findIndex((x) => x.id === checkinModalPlayerId);
+        if (idx !== -1) allPlayers[idx] = updated;
+        $('#cm-gender-saved').style.display = 'block';
+        setTimeout(() => { $('#cm-gender-saved').style.display = 'none'; }, 1500);
     } catch (err) {
         showError(err.message);
     }
@@ -519,7 +555,6 @@ $('#cm-edit-save').addEventListener('click', async () => {
             body: JSON.stringify({
                 first_name,
                 last_name,
-                gender: $('#cm-gender').value || null,
                 membership_status: $('#cm-status').value,
             }),
         });
@@ -535,7 +570,11 @@ $('#cm-edit-save').addEventListener('click', async () => {
 
 $('#cm-category').addEventListener('change', () => {
     const opt = $('#cm-category').selectedOptions[0];
-    if (opt && opt.dataset.cents !== undefined) {
+    // Only auto-fill from a category with a real configured price (template
+    // sessions - Member/Non-Member/etc). A $0 category is a payment *type*
+    // with no fixed price of its own (e.g. Cash/Card/Voucher on a one-off
+    // session) - picking one shouldn't stomp on an amount staff already typed.
+    if (opt && opt.dataset.cents !== undefined && Number(opt.dataset.cents) > 0) {
         $('#cm-amount').value = (Number(opt.dataset.cents) / 100).toFixed(2);
         updateCheckinHint();
     }
@@ -543,8 +582,14 @@ $('#cm-category').addEventListener('change', () => {
 
 $('#cm-amount').addEventListener('input', updateCheckinHint);
 $('#cm-cancel').addEventListener('click', closeCheckinModal);
+// Only closes when BOTH the mousedown and the click landed on the backdrop
+// itself - otherwise dragging inside a field (e.g. selecting text in the
+// Amount box) and releasing the mouse past the modal's edge closed it and
+// threw away everything typed so far.
+let checkinModalMouseDownTarget = null;
+$('#checkin-modal-backdrop').addEventListener('mousedown', (e) => { checkinModalMouseDownTarget = e.target; });
 $('#checkin-modal-backdrop').addEventListener('click', (e) => {
-    if (e.target.id === 'checkin-modal-backdrop') closeCheckinModal();
+    if (e.target.id === 'checkin-modal-backdrop' && checkinModalMouseDownTarget?.id === 'checkin-modal-backdrop') closeCheckinModal();
 });
 
 $('#cm-checkin').addEventListener('click', async () => {
@@ -561,26 +606,39 @@ $('#cm-checkin').addEventListener('click', async () => {
             $('#cm-error').style.display = 'block';
             return;
         }
-        const amountDollars = parseFloat($('#cm-amount').value);
-        if (Number.isNaN(amountDollars) || amountDollars < 0) {
-            $('#cm-error').textContent = 'Amount must be a valid non-negative number.';
-            $('#cm-error').style.display = 'block';
-            return;
+        // A voucher is already prepaid - no amount to collect or log, so an
+        // empty Amount field just means $0 rather than a validation error.
+        const selectedRate = sessionPaymentRates.find((r) => String(r.payment_category_id) === categoryValue);
+        const amountRaw = $('#cm-amount').value.trim();
+        let amountDollars = 0;
+        if (amountRaw === '' && selectedRate?.name === 'Voucher') {
+            amountDollars = 0;
+        } else {
+            amountDollars = parseFloat(amountRaw);
+            if (Number.isNaN(amountDollars) || amountDollars < 0) {
+                $('#cm-error').textContent = 'Amount must be a valid non-negative number.';
+                $('#cm-error').style.display = 'block';
+                return;
+            }
         }
         categoryId = Number(categoryValue);
         amountCents = Math.round(amountDollars * 100);
     }
 
-    const firstTime = $('#cm-first-time').checked;
-    const newMember = $('#cm-new-member').checked;
+    // "Visitor / New Member" sets both underlying flags together - they're
+    // still two independent columns (first_time, new_member) for existing
+    // reports, just no longer distinguished from each other at check-in.
+    const visitorOrNewMember = $('#cm-visitor-new-member').checked;
     const patch = {};
     if (paymentTrackingEnabled) {
         patch.payment_category_id = categoryId;
         patch.payment_amount_cents = amountCents;
         patch.payment_note = $('#cm-note').value.trim() || null;
     }
-    if (firstTime) patch.first_time = true;
-    if (newMember) patch.new_member = true;
+    if (visitorOrNewMember) {
+        patch.first_time = true;
+        patch.new_member = true;
+    }
 
     try {
         const newAttendance = await api(`/api/sessions/${openSession.id}/attendance`, {
@@ -627,14 +685,13 @@ function openPaymentModal(attendanceId) {
     $('#pm-player-name').textContent = `${a.first_name} ${a.last_name}`;
 
     const select = $('#pm-category');
-    select.innerHTML = sessionPaymentRates.map((r) => `<option value="${r.payment_category_id}" data-cents="${r.amount_cents}">${esc(r.name)} - ${formatCents(r.amount_cents)}</option>`).join('');
+    select.innerHTML = sessionPaymentRates.map((r) => `<option value="${r.payment_category_id}" data-cents="${r.amount_cents}">${esc(r.name)}${r.amount_cents > 0 ? ` - ${formatCents(r.amount_cents)}` : ''}</option>`).join('');
     if (a.payment_category_id) select.value = String(a.payment_category_id);
 
     const selectedRate = sessionPaymentRates.find((r) => r.payment_category_id === Number(select.value)) || sessionPaymentRates[0];
     $('#pm-amount').value = a.payment_amount_cents != null ? (a.payment_amount_cents / 100).toFixed(2) : ((selectedRate.amount_cents) / 100).toFixed(2);
     $('#pm-note').value = a.payment_note || '';
-    $('#pm-first-time').checked = !!a.first_time;
-    $('#pm-new-member').checked = !!a.new_member;
+    $('#pm-visitor-new-member').checked = !!a.first_time || !!a.new_member;
     updatePaymentHint();
     $('#payment-modal-backdrop').style.display = 'flex';
 }
@@ -651,7 +708,7 @@ function closePaymentModal() {
 
 $('#pm-category').addEventListener('change', () => {
     const opt = $('#pm-category').selectedOptions[0];
-    if (opt) {
+    if (opt && Number(opt.dataset.cents) > 0) {
         $('#pm-amount').value = (Number(opt.dataset.cents) / 100).toFixed(2);
         updatePaymentHint();
     }
@@ -659,8 +716,10 @@ $('#pm-category').addEventListener('change', () => {
 
 $('#pm-amount').addEventListener('input', updatePaymentHint);
 $('#pm-cancel').addEventListener('click', closePaymentModal);
+let paymentModalMouseDownTarget = null;
+$('#payment-modal-backdrop').addEventListener('mousedown', (e) => { paymentModalMouseDownTarget = e.target; });
 $('#payment-modal-backdrop').addEventListener('click', (e) => {
-    if (e.target.id === 'payment-modal-backdrop') closePaymentModal();
+    if (e.target.id === 'payment-modal-backdrop' && paymentModalMouseDownTarget?.id === 'payment-modal-backdrop') closePaymentModal();
 });
 
 $('#pm-save').addEventListener('click', async () => {
@@ -678,8 +737,8 @@ $('#pm-save').addEventListener('click', async () => {
                 payment_category_id: categoryId,
                 payment_amount_cents: Math.round(amountDollars * 100),
                 payment_note: $('#pm-note').value.trim() || null,
-                first_time: $('#pm-first-time').checked,
-                new_member: $('#pm-new-member').checked,
+                first_time: $('#pm-visitor-new-member').checked,
+                new_member: $('#pm-visitor-new-member').checked,
             }),
         });
         closePaymentModal();
@@ -697,18 +756,17 @@ $('#show-add-player').addEventListener('click', () => {
 });
 
 $('#np-submit').addEventListener('click', async () => {
-    const first_name = $('#np-first').value.trim();
-    const last_name = $('#np-last').value.trim();
-    if (!first_name || !last_name) {
-        showError('First and last name are required to add a new player.');
+    const name = splitFullName($('#np-name').value);
+    if (!name) {
+        showError('Enter a first and last name, e.g. "Joe Bloggs".');
         return;
     }
     try {
         const player = await api('/api/players', {
             method: 'POST',
             body: JSON.stringify({
-                first_name,
-                last_name,
+                first_name: name.first,
+                last_name: name.last,
                 skill_level: $('#np-skill').value,
                 gender: $('#np-gender').value || null,
                 membership_status: $('#np-status').value,
@@ -716,10 +774,12 @@ $('#np-submit').addEventListener('click', async () => {
         });
         await loadAllPlayers();
         $('#player-search').value = '';
-        await checkInPlayer(player.id);
-        $('#np-first').value = '';
-        $('#np-last').value = '';
+        $('#np-name').value = '';
         $('#add-player-form').style.display = 'none';
+        // Same prompt as checking in an existing player - a new player is
+        // not "here today" until the check-in (and payment) modal is
+        // completed, not just created.
+        openCheckinModal(player.id);
     } catch (err) {
         showError(err.message);
     }

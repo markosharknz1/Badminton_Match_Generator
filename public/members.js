@@ -165,26 +165,34 @@ $('#show-add-member').addEventListener('click', () => {
     form.style.display = form.style.display === 'none' ? 'block' : 'none';
 });
 
+// Splits "Joe Bloggs" -> {first: "Joe", last: "Bloggs"}; "Joe Van Bloggs" ->
+// {first: "Joe", last: "Van Bloggs"}. Returns null if there's no space at
+// all, since a last name is required.
+function splitFullName(fullName) {
+    const trimmed = fullName.trim().replace(/\s+/g, ' ');
+    const spaceIdx = trimmed.indexOf(' ');
+    if (spaceIdx === -1) return null;
+    return { first: trimmed.slice(0, spaceIdx), last: trimmed.slice(spaceIdx + 1) };
+}
+
 $('#am-submit').addEventListener('click', async () => {
-    const first_name = $('#am-first').value.trim();
-    const last_name = $('#am-last').value.trim();
-    if (!first_name || !last_name) {
-        showError('First and last name are required.');
+    const name = splitFullName($('#am-name').value);
+    if (!name) {
+        showError('Enter a first and last name, e.g. "Joe Bloggs".');
         return;
     }
     try {
         await api('/api/players', {
             method: 'POST',
             body: JSON.stringify({
-                first_name,
-                last_name,
+                first_name: name.first,
+                last_name: name.last,
                 skill_level: $('#am-skill').value,
                 gender: $('#am-gender').value || null,
                 membership_status: $('#am-status').value,
             }),
         });
-        $('#am-first').value = '';
-        $('#am-last').value = '';
+        $('#am-name').value = '';
         $('#add-member-form').style.display = 'none';
         showError('');
         await loadMembers();
@@ -307,6 +315,7 @@ async function init() {
     try {
         const club = await api('/api/club-settings');
         $('#club-name').textContent = club.club_name;
+        applyBranding(club);
     } catch (err) {
         // non-fatal, matches other pages
     }
@@ -319,7 +328,7 @@ async function init() {
     subscribeToEvents((msg) => {
         if (msg.type === 'players') loadMembers().catch(() => {});
         else if (msg.type === 'club_settings') {
-            api('/api/club-settings').then((c) => { $('#club-name').textContent = c.club_name; }).catch(() => {});
+            api('/api/club-settings').then((c) => { $('#club-name').textContent = c.club_name; applyBranding(c); }).catch(() => {});
         }
     });
 }

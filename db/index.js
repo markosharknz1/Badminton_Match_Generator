@@ -71,6 +71,28 @@ function ensureBaselineDefaults(db) {
     }
 }
 
+// The club's own payment_categories are membership tiers (Member,
+// Non-Member, Concession, etc.) - the right fit for a recurring session
+// started from a template, but jarring for a genuine one-off/walk-in event
+// where nobody has a membership tier to pick from. Ad-hoc sessions use these
+// generic payment-method categories instead (see routes/sessions.js's ad-hoc
+// POST /sessions). Idempotent by name, so re-running never duplicates them
+// and a club is free to rename/deactivate them afterward like any other
+// category.
+const ADHOC_PAYMENT_CATEGORY_NAMES = ['Cash', 'Card', 'Voucher', 'Other'];
+
+function ensureAdhocPaymentCategories(db) {
+    const existingNames = new Set(all(db, 'SELECT name FROM payment_categories').map((r) => r.name));
+    const maxSortOrder = all(db, 'SELECT MAX(sort_order) AS m FROM payment_categories')[0].m ?? -1;
+    let nextSortOrder = maxSortOrder + 1;
+    for (const name of ADHOC_PAYMENT_CATEGORY_NAMES) {
+        if (!existingNames.has(name)) {
+            db.run('INSERT INTO payment_categories (name, sort_order) VALUES (?, ?)', [name, nextSortOrder]);
+            nextSortOrder++;
+        }
+    }
+}
+
 // Adds columns introduced after a database was first created, since
 // `CREATE TABLE IF NOT EXISTS` in schema.sql only affects brand-new tables -
 // it never retrofits an existing one. Additive-only and idempotent (checks
@@ -90,6 +112,23 @@ function ensureColumns(db) {
     for (const col of newClubSettingsCols) {
         if (!clubSettingsCols.includes(col)) {
             db.run(`ALTER TABLE club_settings ADD COLUMN ${col} TEXT`);
+        }
+    }
+    if (!clubSettingsCols.includes('gender_aware_pairing')) {
+        // On by default - auto-generate prefers mixed pairs / same-gender
+        // courts over 3-1 or segregated-sides splits (see lib/autoGenerate.js).
+        db.run(`ALTER TABLE club_settings ADD COLUMN gender_aware_pairing INTEGER NOT NULL DEFAULT 1 CHECK (gender_aware_pairing IN (0,1))`);
+    }
+    if (!clubSettingsCols.includes('club_icon_ver')) {
+        // Bumped by routes/branding.js on every icon upload - lets every page
+        // cache-bust the favicon/logo without needing a live push.
+        db.run(`ALTER TABLE club_settings ADD COLUMN club_icon_ver INTEGER NOT NULL DEFAULT 0`);
+    }
+
+    const templateCols = all(db, `PRAGMA table_info(session_templates)`).map((c) => c.name);
+    for (const col of ['default_game_minutes', 'default_break_minutes']) {
+        if (!templateCols.includes(col)) {
+            db.run(`ALTER TABLE session_templates ADD COLUMN ${col} INTEGER`);
         }
     }
 }
@@ -154,5 +193,6 @@ function get(db, sql, params = []) {
 
 module.exports = {
     DB_PATH, SCHEMA_PATH, BACKUP_DIR, openDb, applySchema, saveDb, all, get,
-    ensureBaselineDefaults, ensureColumns, backupToDocuments, listBackups,
+    ensureBaselineDefaults, ensureColumns, ensureAdhocPaymentCategories, backupToDocuments, listBackups,
+    ADHOC_PAYMENT_CATEGORY_NAMES,
 };

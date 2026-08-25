@@ -14,7 +14,7 @@
 // "updating" (real bug hit in testing - see PROGRESS.md). Network-first
 // means the live server's current files always win when it's reachable,
 // and the cache is only ever a last-resort fallback.
-const CACHE_NAME = 'game-scheduler-shell-v3';
+const CACHE_NAME = 'game-scheduler-shell-v5';
 const SHELL_FILES = [
     '/checkin.html', '/manage.html', '/display.html', '/club.html', '/members.html', '/history.html',
     '/style.css', '/events.js', '/pwa.js',
@@ -41,8 +41,16 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     if (url.pathname.startsWith('/api/')) return;
+    // Passing event.request straight to fetch() still lets the browser's own
+    // HTTP cache short-circuit it via heuristic caching - "network-first" at
+    // the service-worker level isn't enough on its own (this is what let
+    // stale style.css/*.js keep being served even after the v3 fix below).
+    // Fetching by URL string with cache:'no-store' forces a real round trip
+    // every time - deliberately NOT `new Request(event.request, {...})`,
+    // since the Request constructor throws if the source request's mode is
+    // 'navigate' (top-level page loads), which every HTML page load is.
     event.respondWith(
-        fetch(event.request)
+        fetch(event.request.url, { cache: 'no-store' })
             .then((res) => {
                 const copy = res.clone();
                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));

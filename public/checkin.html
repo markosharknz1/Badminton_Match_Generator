@@ -15,13 +15,13 @@
     <nav class="app-nav">
         <a href="/checkin.html" class="active">Check-in</a>
         <a href="/manage.html">Rounds</a>
-        <a href="/display.html" target="_blank">Display</a>
         <a href="/members.html">Player Database</a>
         <a href="/history.html">History</a>
         <a href="/club.html">Settings</a>
     </nav>
     <button type="button" id="install-app-btn" class="install-btn" style="display:none;">+ Install app</button>
     <div class="session-meta">
+        <a href="/display.html" target="_blank" class="external-display-link">External Display</a>
         <span id="session-meta"></span>
         <select id="session-mode-select" style="display:none;">
             <option value="manual">Manual mode</option>
@@ -60,8 +60,7 @@
                 <p><a class="textlink" id="show-add-player">+ Add a new player and check them in</a></p>
                 <div id="add-player-form" style="display:none;">
                     <div class="row">
-                        <div class="field"><label>First name</label><input type="text" id="np-first"></div>
-                        <div class="field"><label>Last name</label><input type="text" id="np-last"></div>
+                        <div class="field"><label>Name</label><input type="text" id="np-name" placeholder="e.g. Joe Bloggs"></div>
                     </div>
                     <div class="row">
                         <div class="field">
@@ -114,12 +113,8 @@
         <div class="field"><label>Amount ($)</label><input type="number" id="pm-amount" min="0" step="0.01"></div>
         <div class="row">
             <div class="field checkbox-row">
-                <input type="checkbox" id="pm-first-time">
-                <label for="pm-first-time">First time visitor</label>
-            </div>
-            <div class="field checkbox-row">
-                <input type="checkbox" id="pm-new-member">
-                <label for="pm-new-member">New member</label>
+                <input type="checkbox" id="pm-visitor-new-member">
+                <label for="pm-visitor-new-member">Visitor / New Member</label>
             </div>
         </div>
         <div class="field">
@@ -149,32 +144,40 @@
                 <label>Amount ($)</label>
                 <input type="number" id="cm-amount" min="0" step="0.01">
             </div>
-            <div class="field">
-                <label>Note</label>
-                <input type="text" id="cm-note" placeholder="e.g. Coach - playing, Admin - playing">
-            </div>
-            <p class="muted" id="cm-hint" style="display:none;">A note is recommended when the amount is $0 - it explains why no payment was taken.</p>
         </div>
 
-        <div class="field">
-            <label>Grade</label>
-            <select id="cm-grade">
-                <option value="A">A</option><option value="B">B</option>
-                <option value="C">C</option><option value="D">D</option><option value="E">E</option>
-            </select>
-            <span class="muted" id="cm-grade-saved" style="display:none; font-size:0.8rem;">Saved</span>
+        <div class="row">
+            <div class="field">
+                <label>Grade</label>
+                <select id="cm-grade">
+                    <option value="A">A</option><option value="B">B</option>
+                    <option value="C">C</option><option value="D">D</option><option value="E">E</option>
+                </select>
+                <span class="muted" id="cm-grade-saved" style="display:none; font-size:0.8rem;">Saved</span>
+            </div>
+            <div class="field">
+                <label>Gender</label>
+                <select id="cm-gender-quick">
+                    <option value="">-</option><option value="F">Female</option><option value="M">Male</option><option value="O">Other</option>
+                </select>
+                <span class="muted" id="cm-gender-saved" style="display:none; font-size:0.8rem;">Saved</span>
+            </div>
         </div>
 
         <a class="textlink" id="cm-edit-toggle" style="display:block; margin-top: 10px;">Edit</a>
         <div class="row" style="margin-top: 6px;">
             <div class="field checkbox-row">
-                <input type="checkbox" id="cm-first-time">
-                <label for="cm-first-time">First time visitor</label>
+                <input type="checkbox" id="cm-visitor-new-member">
+                <label for="cm-visitor-new-member">Visitor / New Member</label>
             </div>
-            <div class="field checkbox-row">
-                <input type="checkbox" id="cm-new-member">
-                <label for="cm-new-member">New member</label>
+        </div>
+
+        <div id="cm-note-section" style="margin-top: 6px;">
+            <div class="field">
+                <label>Note</label>
+                <input type="text" id="cm-note" placeholder="e.g. Coach - playing, Admin - playing">
             </div>
+            <p class="muted" id="cm-hint" style="display:none;">A note is recommended when the amount is $0 - it explains why no payment was taken.</p>
         </div>
 
         <div id="cm-edit-form" style="display:none; margin-top: 8px;">
@@ -184,12 +187,6 @@
                 <div class="field"><label>Last name</label><input type="text" id="cm-last"></div>
             </div>
             <div class="row">
-                <div class="field">
-                    <label>Gender</label>
-                    <select id="cm-gender">
-                        <option value="">-</option><option value="F">F</option><option value="M">M</option>
-                    </select>
-                </div>
                 <div class="field">
                     <label>Membership</label>
                     <select id="cm-status">
@@ -215,6 +212,7 @@
 </div>
 
 <script src="/events.js"></script>
+<script src="/branding.js"></script>
 <script src="/checkin.js"></script>
 <script src="/pwa.js"></script>
 </body>

@@ -87,9 +87,10 @@ router.post('/', (req, res) => {
     if (errors.length) return res.status(400).json({ errors });
     try {
         const id = store.insert(
-            `INSERT INTO session_templates (label, day_of_week, start_time, end_time, default_mode, default_max_capacity)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [b.label, b.day_of_week, b.start_time, b.end_time, b.default_mode, b.default_max_capacity ?? null]
+            `INSERT INTO session_templates (label, day_of_week, start_time, end_time, default_mode, default_max_capacity, default_game_minutes, default_break_minutes)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [b.label, b.day_of_week, b.start_time, b.end_time, b.default_mode, b.default_max_capacity ?? null,
+                b.default_game_minutes ?? null, b.default_break_minutes ?? null]
         );
         const courtIds = Array.isArray(b.court_ids) ? b.court_ids : [];
         for (const courtId of courtIds) {
@@ -116,9 +117,10 @@ router.put('/:id', (req, res) => {
     if (!MODES.includes(merged.default_mode)) return res.status(400).json({ error: `default_mode must be one of ${MODES.join(', ')}` });
     try {
         store.run(
-            `UPDATE session_templates SET label=?, day_of_week=?, start_time=?, end_time=?, default_mode=?, default_max_capacity=?
+            `UPDATE session_templates SET label=?, day_of_week=?, start_time=?, end_time=?, default_mode=?, default_max_capacity=?, default_game_minutes=?, default_break_minutes=?
              WHERE id=?`,
-            [merged.label, merged.day_of_week, merged.start_time, merged.end_time, merged.default_mode, merged.default_max_capacity, req.params.id]
+            [merged.label, merged.day_of_week, merged.start_time, merged.end_time, merged.default_mode, merged.default_max_capacity,
+                merged.default_game_minutes ?? null, merged.default_break_minutes ?? null, req.params.id]
         );
         store.persist();
         broadcast('session_templates', {});

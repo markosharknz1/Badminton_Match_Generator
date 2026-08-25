@@ -4,6 +4,9 @@ cd /d "%~dp0"
 
 REM Dev-only tool - rebuilds GameScheduler.exe from launcher.py after a code
 REM change. End users never run this; they just use the committed exe.
+REM Requires: pip install pyinstaller pywebview pythonnet pywin32
+REM (pywin32 is used for the first-run desktop shortcut - PyInstaller's
+REM bundled contrib hooks bundle its COM DLLs automatically, no extra flags needed.)
 where pyinstaller >nul 2>nul
 if errorlevel 1 (
     echo PyInstaller isn't installed. Run: python -m pip install pyinstaller

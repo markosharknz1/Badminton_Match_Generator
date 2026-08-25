@@ -207,6 +207,7 @@ async function init() {
     try {
         const club = await api('/api/club-settings');
         $('#club-name').textContent = club.club_name;
+        applyBranding(club);
     } catch (err) { /* non-fatal */ }
     try {
         await loadSessions();

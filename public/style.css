@@ -26,7 +26,7 @@ header.app-header {
     border-bottom: 1px solid var(--border);
     padding: 12px 20px;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 8px;
@@ -37,9 +37,46 @@ header.app-header h1 {
     margin: 0;
 }
 
+header.app-header #club-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    margin-right: 10px;
+    object-fit: cover;
+}
+
 header.app-header .session-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
     color: var(--muted);
     font-size: 0.9rem;
+}
+
+/* The global input/select width:100% rule (meant for stacked form fields
+   inside .field) was stretching this bare dropdown to fill the entire
+   .session-meta row, forcing everything after it onto its own line. */
+header.app-header .session-meta select {
+    width: auto;
+}
+
+/* Deliberately separated from the main nav (was sitting between two
+   frequently-clicked links and kept getting hit by accident) and styled
+   like a secondary action, not a page tab, since it opens a whole separate
+   window rather than navigating this one. */
+header.app-header .external-display-link {
+    margin-right: 14px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+header.app-header .external-display-link:hover {
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 header.app-header .install-btn {
@@ -130,6 +167,18 @@ label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 
 
 .row { display: flex; gap: 12px; flex-wrap: wrap; }
 .row > * { flex: 1; min-width: 140px; }
+
+/* Opts out of the .row > * grow/stretch rule above - a fixed-size thumbnail,
+   not a form field that should share the row's width. */
+.icon-preview-thumb {
+    flex: none;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    object-fit: cover;
+}
 
 .player-list {
     list-style: none;
@@ -222,6 +271,10 @@ label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 
 .badge.skill-D { background: #dcfce7; color: #15803d; }
 .badge.skill-E { background: #e0e7ff; color: #4338ca; }
 
+.badge.gender-M { background: #dbeafe; color: #1d4ed8; }
+.badge.gender-F { background: #fce7f3; color: #be185d; }
+.badge.gender-O { background: #ede9fe; color: #6d28d9; }
+
 .court-checks {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
@@ -311,6 +364,21 @@ nav.app-nav a.active {
 .phase-badge.awaiting_lineup { background: #fee2e2; color: var(--danger); }
 .phase-badge.idle { background: #e5e7eb; color: var(--muted); }
 
+/* Always visible regardless of round phase/staging state - switching modes
+   used to have no visible effect at all whenever courts were already
+   staged, since the only mode-aware text lived inside phase-detail and only
+   showed up in one specific empty-round state. */
+.mode-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    text-transform: capitalize;
+}
+
 .round-controls {
     display: flex;
     align-items: center;
@@ -369,6 +437,12 @@ nav.app-nav a.active {
     background: #f0fdf4;
 }
 
+.court-card.incomplete,
+.court-card.staged.incomplete {
+    border-color: var(--danger);
+    background: #fee2e2;
+}
+
 .court-card-header {
     display: flex;
     justify-content: space-between;
@@ -380,12 +454,13 @@ nav.app-nav a.active {
 
 .sides {
     display: flex;
+    flex-direction: column;
     gap: 10px;
     margin-bottom: 10px;
 }
 
 .side-box {
-    flex: 1;
+    flex: none;
     border: 1px dashed var(--border);
     border-radius: 8px;
     padding: 8px;
@@ -431,6 +506,8 @@ nav.app-nav a.active {
     font-weight: 700;
     margin-left: 6px;
 }
+
+.rested-last-round { font-weight: 700; }
 
 .court-actions {
     display: flex;
@@ -508,6 +585,13 @@ nav.app-nav a.active {
 
 .active-game-card h4 { margin: 0 0 8px; font-size: 0.9rem; }
 .active-game-card .side-line { font-size: 0.85rem; margin-bottom: 2px; }
+
+/* Up next (staged, not yet on court) - amber instead of the live/green look,
+   so a break-time preview never reads as "already playing". */
+.active-games-panel.up-next .active-game-card {
+    background: #fef3c7;
+    border-color: var(--warn);
+}
 
 /* --- Club management page --- */
 .court-roster {

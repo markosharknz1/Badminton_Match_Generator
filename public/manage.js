@@ -6,6 +6,7 @@ let openSession = null;
 let sessionCourts = []; // [{court_id, court_number, label}]
 let roundStatus = null; // last GET /rounds/status response
 let buildRound = null;
+let lastLoadedRound = null; // which round buildState currently reflects - see roundBuilder.js's mergeBuilderState
 let buildState = {}; // court_id -> { staged: {gameId,format,side1,side2} | null, draft: {format,side1,side2}, editing: bool }
 let attendancePool = []; // present players (here_today or playing) for this session
 let playedPreviousRoundIds = new Set(); // player ids who played in buildRound-1, for the pool split
@@ -36,6 +37,12 @@ function showError(message) {
 
 function skillBadge(skill) {
     return skill ? `<span class="badge skill-${skill}">${skill}</span>` : '';
+}
+
+function genderBadge(gender) {
+    if (!gender) return '';
+    const g = gender === 'M' || gender === 'F' ? gender : 'O';
+    return `<span class="badge gender-${g}">${g}</span>`;
 }
 
 function esc(s) {
@@ -159,8 +166,7 @@ async function refreshAll() {
     await loadRoundStatus();
     await loadAttendancePool();
     await loadActiveGames();
-    const targetRound = buildRound && buildRound >= roundStatus.next_round_number ? buildRound : roundStatus.next_round_number;
-    await loadBuilderForRound(targetRound);
+    await loadBuilderForRound(resolveTargetRound(buildRound, roundStatus));
 }
 
 function handleServerEvent(msg) {
@@ -173,7 +179,7 @@ function handleServerEvent(msg) {
     if (msg.type === 'game' && msg.session_id === openSession.id) {
         loadRoundStatus()
             .then(() => loadActiveGames())
-            .then(() => loadBuilderForRound(buildRound))
+            .then(() => loadBuilderForRound(resolveTargetRound(buildRound, roundStatus)))
             .catch((err) => showError(err.message));
     } else if (msg.type === 'attendance' && msg.session_id === openSession.id) {
         loadAttendancePool()
@@ -190,6 +196,7 @@ async function init() {
     try {
         const club = await api('/api/club-settings');
         $('#club-name').textContent = club.club_name;
+        applyBranding(club);
     } catch (err) {
         // non-fatal
     }
@@ -203,10 +210,15 @@ async function loadRoundStatus() {
     renderRoundControls();
 }
 
+// Phase values (and their CSS classes / API routes) stay as-is internally -
+// this only controls what staff actually see.
+const PHASE_LABELS = { idle: 'idle', game: 'game', break: 'changeover', awaiting_lineup: 'awaiting lineup' };
+
 function renderRoundControls() {
     const badge = $('#phase-badge');
-    badge.textContent = roundStatus.current_phase.replace('_', ' ');
+    badge.textContent = PHASE_LABELS[roundStatus.current_phase] || roundStatus.current_phase.replace('_', ' ');
     badge.className = `phase-badge ${roundStatus.current_phase}`;
+    $('#mode-badge').textContent = `${roundStatus.mode} mode`;
 
     const detail = $('#phase-detail');
     const btn = $('#round-action-btn');
@@ -217,8 +229,12 @@ function renderRoundControls() {
         btn.disabled = false;
         btn.onclick = () => runRoundAction(() => api(`/api/sessions/${openSession.id}/rounds/end-game`, { method: 'POST' }));
     } else if (roundStatus.current_phase === 'break') {
-        detail.textContent = roundStatus.phase_ends_at ? `break - ends ${timeOnly(roundStatus.phase_ends_at)}` : 'break';
-        btn.textContent = 'End break';
+        // "Changeover" in the UI, not "break" - it's the time for players to
+        // get off court and the next group on, not a rest period. The
+        // underlying phase value/DB column stays 'break' - only the label
+        // shown to staff/players changes.
+        detail.textContent = roundStatus.phase_ends_at ? `changeover - ends ${timeOnly(roundStatus.phase_ends_at)}` : 'changeover';
+        btn.textContent = 'End changeover';
         btn.disabled = false;
         btn.onclick = () => runRoundAction(() => api(`/api/sessions/${openSession.id}/rounds/end-break`, { method: 'POST' }));
     } else {
@@ -247,46 +263,61 @@ async function runRoundAction(fn) {
     }
 }
 
-// --- Currently on court (browsable back through past rounds this session) ---
+// --- Currently on court / up next (browsable back through past rounds too) ---
+// Three possible things this panel can show: the round actually on court
+// ('active'), a staged-but-not-started round during a break/before round 1
+// ('staged' - "up next", so players can walk to their court the moment the
+// break ends instead of waiting to be told), or a past completed round
+// someone's browsing back to via the arrows.
 let viewedRound = null;
 
-function maxViewableRound() {
-    return roundStatus.current_phase === 'game' ? roundStatus.current_round : roundStatus.next_round_number - 1;
+function defaultViewedRound() {
+    if (roundStatus.current_phase === 'game') return roundStatus.current_round;
+    if (roundStatus.staged_next_count > 0) return roundStatus.next_round_number;
+    return roundStatus.next_round_number - 1;
+}
+
+function statusForViewedRound() {
+    if (roundStatus.current_phase === 'game' && viewedRound === roundStatus.current_round) return 'active';
+    if (roundStatus.current_phase !== 'game' && viewedRound === roundStatus.next_round_number && roundStatus.staged_next_count > 0) return 'staged';
+    return 'completed';
 }
 
 async function loadActiveGames() {
     const panel = $('#active-games-panel');
-    const max = maxViewableRound();
-    if (max < 1) {
+    const target = defaultViewedRound();
+    if (target < 1) {
         panel.style.display = 'none';
         viewedRound = null;
         return;
     }
     panel.style.display = 'block';
-    viewedRound = max; // jump back to the latest round whenever round status refreshes
+    viewedRound = target; // jump to the latest/most relevant round whenever round status refreshes
     await renderRoundGamesPanel();
 }
 
 async function renderRoundGamesPanel() {
-    const isLive = roundStatus.current_phase === 'game' && viewedRound === roundStatus.current_round;
-    const games = await api(`/api/sessions/${openSession.id}/games?round_number=${viewedRound}&status=${isLive ? 'active' : 'completed'}`);
+    const status = statusForViewedRound();
+    const games = await api(`/api/sessions/${openSession.id}/games?round_number=${viewedRound}&status=${status}`);
     $('#active-round-number').textContent = viewedRound;
+    $('#active-games-heading-label').textContent = status === 'active' ? 'Currently on court' : status === 'staged' ? 'Up next' : 'Round played';
+    $('#active-games-panel').classList.toggle('up-next', status === 'staged');
     $('#active-round-minus').disabled = viewedRound <= 1;
-    $('#active-round-plus').disabled = isLive;
+    $('#active-round-plus').disabled = viewedRound >= defaultViewedRound();
     $('#active-games-grid').innerHTML = games.map((g) => `
         <div class="active-game-card">
             <h4>Court ${courtNumberFor(g.court_id)} <span class="muted">(${g.format})</span></h4>
             <div class="side-line"><strong>1:</strong> ${g.players.filter((p) => p.side === 1).map((p) => `${p.first_name} ${p.last_name}${skillBadge(p.skill_level_at_time)}`).join(', ')}</div>
             <div class="side-line"><strong>2:</strong> ${g.players.filter((p) => p.side === 2).map((p) => `${p.first_name} ${p.last_name}${skillBadge(p.skill_level_at_time)}`).join(', ')}</div>
         </div>
-    `).join('') || '<p class="muted">No games recorded for this round.</p>';
+    `).join('') || `<p class="muted">${status === 'staged' ? 'Nothing staged for next round yet.' : 'No games recorded for this round.'}</p>`;
 }
 
 $('#active-round-minus').addEventListener('click', () => {
     if (viewedRound > 1) { viewedRound -= 1; renderRoundGamesPanel().catch((err) => showError(err.message)); }
 });
 $('#active-round-plus').addEventListener('click', () => {
-    if (viewedRound < maxViewableRound()) { viewedRound += 1; renderRoundGamesPanel().catch((err) => showError(err.message)); }
+    if (viewedRound < defaultViewedRound()) { viewedRound += 1; renderRoundGamesPanel().catch((err) => showError(err.message)); }
 });
 
 // --- Attendance pool ---
@@ -297,24 +328,14 @@ async function loadAttendancePool() {
 
 // --- Builder ---
 async function loadBuilderForRound(round) {
+    const prevRound = lastLoadedRound;
     buildRound = round;
     $('#build-round-number').textContent = buildRound;
     $('#round-minus').disabled = buildRound <= roundStatus.next_round_number;
 
     const staged = await api(`/api/sessions/${openSession.id}/games?round_number=${buildRound}&status=staged`);
-    buildState = {};
-    for (const c of sessionCourts) {
-        buildState[c.court_id] = { staged: null, draft: { format: 'doubles', side1: [], side2: [] }, editing: false };
-    }
-    for (const g of staged) {
-        const side1 = g.players.filter((p) => p.side === 1).map((p) => p.player_id);
-        const side2 = g.players.filter((p) => p.side === 2).map((p) => p.player_id);
-        buildState[g.court_id] = {
-            staged: { gameId: g.id, format: g.format, side1, side2 },
-            draft: { format: g.format, side1: [...side1], side2: [...side2] },
-            editing: false,
-        };
-    }
+    buildState = mergeBuilderState(buildState, staged, sessionCourts, buildRound, prevRound);
+    lastLoadedRound = buildRound;
 
     // Who played the immediately preceding round, so the pool can surface
     // players who sat out last round ahead of everyone else (they carry sit-out
@@ -356,14 +377,22 @@ function playerSkill(playerId) {
     return a ? a.skill_level : null;
 }
 
+function playerGender(playerId) {
+    const a = attendancePool.find((p) => p.player_id === playerId);
+    return a ? a.gender : null;
+}
+
 function byLastName(a, b) {
     return a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name);
 }
 
-function poolPlayerHtml(p) {
+function poolPlayerHtml(p, rested) {
+    // "(playing now)" was redundant - the same info is already visible in
+    // the "Currently on court" table above, and this player already sits
+    // under the "Played last game" section heading below.
     return `
         <div class="pool-player" draggable="true" data-player-id="${p.player_id}">
-            ${p.first_name} ${p.last_name}${skillBadge(p.skill_level)} <span class="muted">${p.state === 'playing' ? '(playing now)' : ''}</span>
+            <span class="${rested ? 'rested-last-round' : ''}">${p.first_name} ${p.last_name}${skillBadge(p.skill_level)}${genderBadge(p.gender)}</span>
         </div>
     `;
 }
@@ -382,13 +411,17 @@ function renderBuilder() {
         poolEl.innerHTML = '<p class="muted">No players available to place.</p>';
     } else if (buildRound <= 1) {
         // No previous round exists yet to split against.
-        poolEl.innerHTML = pool.slice().sort(byLastName).map(poolPlayerHtml).join('');
+        poolEl.innerHTML = pool.slice().sort(byLastName).map((p) => poolPlayerHtml(p, false)).join('');
     } else {
+        // Sat-out players are listed first - they get hard priority for the
+        // next round's limited slots (see lib/autoGenerate.js rule 2) - and
+        // bolded, same treatment as once they're placed on a court, so
+        // "who's due a game" reads consistently everywhere their name shows up.
         const readyToPlay = pool.filter((p) => !playedPreviousRoundIds.has(p.player_id)).sort(byLastName);
-        const restedLastGame = pool.filter((p) => playedPreviousRoundIds.has(p.player_id)).sort(byLastName);
+        const playedLastGame = pool.filter((p) => playedPreviousRoundIds.has(p.player_id)).sort(byLastName);
         poolEl.innerHTML = [
-            readyToPlay.length ? `<div class="pool-section-label">Ready to play (${readyToPlay.length})</div>${readyToPlay.map(poolPlayerHtml).join('')}` : '',
-            restedLastGame.length ? `<div class="pool-section-label">Rested last game (${restedLastGame.length})</div>${restedLastGame.map(poolPlayerHtml).join('')}` : '',
+            readyToPlay.length ? `<div class="pool-section-label">Ready to play (${readyToPlay.length})</div>${readyToPlay.map((p) => poolPlayerHtml(p, true)).join('')}` : '',
+            playedLastGame.length ? `<div class="pool-section-label">Played last game (${playedLastGame.length})</div>${playedLastGame.map((p) => poolPlayerHtml(p, false)).join('')}` : '',
         ].join('');
     }
 
@@ -411,9 +444,13 @@ function renderCourtCard(court) {
         for (let i = 0; i < perSide; i++) {
             const playerId = ids[i];
             if (playerId !== undefined) {
+                // Flags anyone who sat out the previous round, same "rest
+                // priority" concept as the player-pool sidebar's grouping -
+                // an at-a-glance check that fair rotation actually happened.
+                const restedLastRound = buildRound > 1 && !playedPreviousRoundIds.has(playerId);
                 slots.push(`
                     <div class="slot filled" ${isReadOnly ? '' : `draggable="true" data-court="${court.court_id}" data-side="${sideNum}" data-player="${playerId}"`}>
-                        <span>${playerLabel(playerId)}${skillBadge(playerSkill(playerId))}</span>
+                        <span class="${restedLastRound ? 'rested-last-round' : ''}">${playerLabel(playerId)}${skillBadge(playerSkill(playerId))}${genderBadge(playerGender(playerId))}</span>
                         ${isReadOnly ? '' : `<span class="remove-slot" data-court="${court.court_id}" data-side="${sideNum}" data-player="${playerId}">&times;</span>`}
                     </div>
                 `);
@@ -429,7 +466,9 @@ function renderCourtCard(court) {
         `;
     };
 
-    const full = state.side1.length === perSide && state.side2.length === perSide;
+    const totalPlayers = state.side1.length + state.side2.length;
+    const expectedSize = perSide * 2;
+    const incomplete = totalPlayers > 0 && totalPlayers < expectedSize;
 
     let actions;
     if (isReadOnly) {
@@ -440,21 +479,21 @@ function renderCourtCard(court) {
     } else if (st.staged) {
         actions = `
             <button class="small" data-action="cancel" data-court="${court.court_id}">Cancel</button>
-            <button class="small primary" data-action="save" data-court="${court.court_id}" ${full ? '' : 'disabled'}>Save</button>
+            <button class="small primary" data-action="save" data-court="${court.court_id}" ${totalPlayers > 0 ? '' : 'disabled'}>Save</button>
         `;
     } else {
         actions = `
             <button class="small" data-action="clear" data-court="${court.court_id}">Clear</button>
-            <button class="small primary" data-action="save" data-court="${court.court_id}" ${full ? '' : 'disabled'}>Save</button>
+            <button class="small primary" data-action="save" data-court="${court.court_id}" ${totalPlayers > 0 ? '' : 'disabled'}>Save</button>
         `;
     }
 
     return `
-        <div class="court-card ${isReadOnly ? 'staged' : ''}">
+        <div class="court-card ${isReadOnly ? 'staged' : ''} ${incomplete ? 'incomplete' : ''}">
             <div class="court-card-header">
                 <strong>Court ${court.court_number}</strong>
                 ${isReadOnly
-                    ? `<span class="muted">${state.format} - staged</span>`
+                    ? `<span class="muted">${state.format} - staged${incomplete ? ' - incomplete' : ''}</span>`
                     : `<select data-action="format" data-court="${court.court_id}" ${st.staged ? '' : ''}>
                         <option value="doubles" ${state.format === 'doubles' ? 'selected' : ''}>Doubles</option>
                         <option value="singles" ${state.format === 'singles' ? 'selected' : ''}>Singles</option>
@@ -591,6 +630,7 @@ async function unstageCourt(courtId) {
     const st = buildState[courtId];
     try {
         await api(`/api/games/${st.staged.gameId}`, { method: 'DELETE' });
+        showError('');
         await loadRoundStatus();
         await loadBuilderForRound(buildRound);
     } catch (err) {
@@ -611,6 +651,12 @@ async function saveCourt(courtId) {
         } else {
             await api(`/api/sessions/${openSession.id}/games`, { method: 'POST', body: JSON.stringify(payload) });
         }
+        // A successful save always ends editing - otherwise mergeBuilderState
+        // (correctly) treats a still-"editing" court as an in-progress edit
+        // that must survive the refresh, and the court gets stuck showing
+        // Save/Cancel forever even though the save actually went through.
+        st.editing = false;
+        showError('');
         await loadRoundStatus();
         await loadBuilderForRound(buildRound);
     } catch (err) {
@@ -629,7 +675,14 @@ async function autoGenerateBuildRound() {
     try {
         const data = await api(`/api/sessions/${openSession.id}/auto-generate/preview?round_number=${buildRound}`);
         if (data.games.length === 0) {
-            showError(`Auto-generate couldn't build round ${buildRound}: not enough players present, or no empty courts left.`);
+            const usedIds = allUsedPlayerIds();
+            const leftover = attendancePool.filter((p) => !usedIds.has(p.player_id)).length;
+            const emptyCourts = sessionCourts.filter((c) => !buildState[c.court_id].staged).length;
+            showError(emptyCourts === 0
+                ? `Auto-generate couldn't build round ${buildRound}: every court already has something staged.`
+                : leftover > 0 && leftover < 4
+                    ? `Auto-generate couldn't build round ${buildRound}: only ${leftover} player${leftover === 1 ? '' : 's'} left in the pool - not enough for a full court.`
+                    : `Auto-generate couldn't build round ${buildRound}: not enough players present.`);
             return;
         }
         const errors = [];
@@ -643,9 +696,26 @@ async function autoGenerateBuildRound() {
                 errors.push(err.message);
             }
         }
-        showError(errors.length ? `Auto-generate staged ${data.games.length - errors.length} of ${data.games.length} courts - ${errors.join('; ')}` : '');
         await loadRoundStatus();
         await loadBuilderForRound(buildRound);
+
+        if (errors.length) {
+            showError(`Auto-generate staged ${data.games.length - errors.length} of ${data.games.length} courts - ${errors.join('; ')}`);
+        } else {
+            // Auto-generate only ever proposes *full* courts - if the
+            // leftover pool is short of a fourth player, a court is left
+            // empty with no explanation unless we say so here. This isn't a
+            // bug (there's genuinely no way to auto-fill a partial court),
+            // but it looked like one - "why is court 3 just sitting there?"
+            const usedIds = allUsedPlayerIds();
+            const leftover = attendancePool.filter((p) => !usedIds.has(p.player_id)).length;
+            const emptyCourts = sessionCourts.filter((c) => !buildState[c.court_id].staged).length;
+            if (emptyCourts > 0 && leftover > 0 && leftover < 4) {
+                showError(`Round ${buildRound} staged with ${leftover} player${leftover === 1 ? '' : 's'} left over - not enough for a full court, so ${emptyCourts} court${emptyCourts === 1 ? '' : 's'} stayed empty. Drag them onto a court manually if you'd like to use a partial lineup.`);
+            } else {
+                showError('');
+            }
+        }
     } catch (err) {
         showError(err.message);
     } finally {
@@ -678,8 +748,10 @@ poolSidebar.addEventListener('drop', (e) => {
 // --- Rounds played modal ---
 $('#view-rounds-btn').addEventListener('click', openRoundsModal);
 $('#rounds-modal-close').addEventListener('click', () => { $('#rounds-modal-backdrop').style.display = 'none'; });
+let roundsModalMouseDownTarget = null;
+$('#rounds-modal-backdrop').addEventListener('mousedown', (e) => { roundsModalMouseDownTarget = e.target; });
 $('#rounds-modal-backdrop').addEventListener('click', (e) => {
-    if (e.target.id === 'rounds-modal-backdrop') $('#rounds-modal-backdrop').style.display = 'none';
+    if (e.target.id === 'rounds-modal-backdrop' && roundsModalMouseDownTarget?.id === 'rounds-modal-backdrop') $('#rounds-modal-backdrop').style.display = 'none';
 });
 
 // --- Round stepper ---

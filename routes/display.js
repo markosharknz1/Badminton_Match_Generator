@@ -1,5 +1,6 @@
 const express = require('express');
 const store = require('../db/store');
+const { getNextRoundNumber } = require('../lib/roundLifecycle');
 
 const router = express.Router();
 
@@ -78,13 +79,41 @@ router.get('/sessions/:id/display', (req, res) => {
         ),
     }));
 
+    // While there's no round actually on court (break, awaiting_lineup, or
+    // before round 1 starts), show whatever's already staged for the next
+    // round - lets players walk straight to their next court the moment the
+    // break ends instead of waiting around for the lineup to be announced.
+    let nextRoundGames = [];
+    if (session.current_phase !== 'game') {
+        const nextRound = getNextRoundNumber(sessionId);
+        nextRoundGames = store.query(
+            `SELECT g.id, g.court_id, g.round_number, g.format FROM games g
+             WHERE g.session_id = ? AND g.round_number = ? AND g.status = 'staged' ORDER BY g.court_id`,
+            [sessionId, nextRound]
+        ).map((g) => ({
+            ...g,
+            players: store.query(
+                `SELECT gp.player_id, gp.side, gp.skill_level_at_time, p.first_name, p.last_name
+                 FROM game_players gp JOIN players p ON p.id = gp.player_id
+                 WHERE gp.game_id = ? ORDER BY gp.side, p.last_name`,
+                [g.id]
+            ),
+        }));
+    }
+
+    // Staging a round doesn't change attendance.state (by design - see
+    // routes/games.js), so anyone already staged into next_round_games
+    // above is still 'here_today' too. Without excluding them, "Resting"
+    // showed the exact same people already labeled "Up next" on a court -
+    // not actually resting, just not on court *yet*.
+    const assignedNextRoundIds = new Set(nextRoundGames.flatMap((g) => g.players.map((p) => p.player_id)));
     const waiting = store.query(
         `SELECT a.player_id, p.first_name, p.last_name, p.skill_level
          FROM attendance a JOIN players p ON p.id = a.player_id
          WHERE a.session_id = ? AND a.state = 'here_today'
          ORDER BY p.last_name, p.first_name`,
         [sessionId]
-    );
+    ).filter((w) => !assignedNextRoundIds.has(w.player_id));
     const counts = sitOutCounts(sessionId, waiting.map((w) => w.player_id));
 
     res.json({
@@ -102,6 +131,7 @@ router.get('/sessions/:id/display', (req, res) => {
         },
         courts,
         active_games: activeGames,
+        next_round_games: nextRoundGames,
         waiting: waiting.map((w) => ({ ...w, sit_out_count: counts.get(w.player_id) })),
     });
 });

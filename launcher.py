@@ -129,6 +129,38 @@ def ensure_database():
         _fatal(f'Could not set up the database:\n\n{result.stderr[:500]}')
 
 
+def ensure_desktop_shortcut():
+    # First-run convenience for non-technical users - only makes sense for
+    # the packaged exe (dev mode running launcher.py directly has no
+    # meaningful shortcut target). Best-effort: any failure here (no
+    # win32com, a locked-down Desktop folder, whatever) must never stop the
+    # app from launching, same pattern as db/index.js's backupToDocuments().
+    if not getattr(sys, 'frozen', False):
+        return
+    try:
+        import win32com.client
+
+        shell = win32com.client.Dispatch('WScript.Shell')
+        desktop = shell.SpecialFolders('Desktop')  # respects a OneDrive-redirected Desktop
+        shortcut_path = os.path.join(desktop, 'Game Scheduler.lnk')
+        if os.path.exists(shortcut_path):
+            return  # idempotent - never overwrite one a user moved, renamed, or kept
+
+        exe_path = sys.executable
+        custom_icon = os.path.join(BASE_DIR, 'public', 'icons', 'club-icon.ico')
+        icon_path = custom_icon if os.path.isfile(custom_icon) else exe_path  # exe carries app_icon.ico as its own resource
+
+        shortcut = shell.CreateShortcut(shortcut_path)
+        shortcut.TargetPath = exe_path
+        shortcut.WorkingDirectory = BASE_DIR
+        shortcut.IconLocation = icon_path
+        shortcut.Description = 'Game Scheduler'
+        shortcut.save()
+        log(f'Created desktop shortcut at {shortcut_path}.')
+    except Exception as exc:
+        log(f'Could not create a desktop shortcut (non-fatal): {exc}')
+
+
 def port_open(port):
     import socket
     try:
@@ -198,6 +230,7 @@ def main():
 
     ensure_node()
     ensure_database()
+    ensure_desktop_shortcut()
 
     import webview
 

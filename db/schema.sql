@@ -43,7 +43,10 @@ CREATE TABLE IF NOT EXISTS session_templates (
     start_time TEXT NOT NULL,
     end_time TEXT NOT NULL,
     default_mode TEXT NOT NULL CHECK (default_mode IN ('auto','manual','social')),
-    default_max_capacity INTEGER
+    default_max_capacity INTEGER,
+    -- Null falls back to club_settings.default_game_minutes/default_break_minutes.
+    default_game_minutes INTEGER,
+    default_break_minutes INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS session_template_courts (
@@ -151,6 +154,12 @@ CREATE TABLE IF NOT EXISTS club_settings (
     smtp2go_sender_name TEXT,
     square_access_token TEXT,
     square_location_id TEXT,
+    -- Auto-generate prefers mixed pairs / same-gender courts over 3-1 or
+    -- segregated-sides splits when on (see lib/autoGenerate.js).
+    gender_aware_pairing INTEGER NOT NULL DEFAULT 1 CHECK (gender_aware_pairing IN (0,1)),
+    -- Bumped on every custom icon upload (routes/branding.js), for
+    -- cache-busting the favicon/header logo without a live push.
+    club_icon_ver INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

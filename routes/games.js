@@ -29,16 +29,24 @@ function validateLineup({ sessionId, courtId, roundNumber, format, players, excl
         errors.push(`format must be one of ${Object.keys(FORMAT_SIZES).join(', ')}`);
         return errors;
     }
+    // A court being designed can be incomplete (1 up to expectedSize players)
+    // while staged - it just can't start a round that way (see the
+    // completeness gate in roundLifecycle's beginRound). Only a fully empty
+    // request or one that overflows a side/court is rejected outright.
     const expectedSize = FORMAT_SIZES[format];
-    if (!Array.isArray(players) || players.length !== expectedSize) {
-        errors.push(`${format} requires exactly ${expectedSize} players`);
+    if (!Array.isArray(players) || players.length < 1 || players.length > expectedSize) {
+        errors.push(`${format} allows 1 to ${expectedSize} players while staging (needs all ${expectedSize} before the round can start)`);
+        return errors;
+    }
+    if (!players.every((p) => p.side === 1 || p.side === 2)) {
+        errors.push('every player must be assigned to side 1 or side 2');
         return errors;
     }
     const perSide = expectedSize / 2;
     const side1 = players.filter((p) => p.side === 1);
     const side2 = players.filter((p) => p.side === 2);
-    if (side1.length !== perSide || side2.length !== perSide) {
-        errors.push(`each side must have exactly ${perSide} player${perSide > 1 ? 's' : ''}`);
+    if (side1.length > perSide || side2.length > perSide) {
+        errors.push(`each side holds at most ${perSide} player${perSide > 1 ? 's' : ''}`);
     }
     const playerIds = players.map((p) => p.player_id);
     if (new Set(playerIds).size !== playerIds.length) {

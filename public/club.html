@@ -15,13 +15,12 @@
     <nav class="app-nav">
         <a href="/checkin.html">Check-in</a>
         <a href="/manage.html">Rounds</a>
-        <a href="/display.html" target="_blank">Display</a>
         <a href="/members.html">Player Database</a>
         <a href="/history.html">History</a>
         <a href="/club.html" class="active">Settings</a>
     </nav>
     <button type="button" id="install-app-btn" class="install-btn" style="display:none;">+ Install app</button>
-    <div class="session-meta">Club settings</div>
+    <div class="session-meta"><a href="/display.html" target="_blank" class="external-display-link">External Display</a> Club settings</div>
 </header>
 
 <main>
@@ -31,12 +30,12 @@
         <div class="field">
             <label>Section</label>
             <select id="settings-section">
-                <option value="club-details">Club Details</option>
                 <option value="courts">Courts</option>
                 <option value="skill">Skill Compatibility</option>
                 <option value="templates">Session Templates</option>
                 <option value="email">Email</option>
                 <option value="payments">Payments</option>
+                <option value="club-details">Club Details</option>
             </select>
         </div>
     </section>
@@ -51,23 +50,37 @@
             <div class="field">
                 <label>Default game length (minutes)</label>
                 <input type="number" id="cs-game" min="1">
+                <p class="muted" style="font-size:0.78rem; margin: 4px 0 0;">Fallback when a session template doesn't set its own - see Session Templates.</p>
             </div>
             <div class="field">
-                <label>Default break length (minutes)</label>
+                <label>Default changeover length (minutes)</label>
                 <input type="number" id="cs-break" min="0">
+                <p class="muted" style="font-size:0.78rem; margin: 4px 0 0;">Fallback when a session template doesn't set its own - see Session Templates.</p>
             </div>
         </div>
         <div class="row">
-            <div class="field">
-                <label>Comfortable rotation guideline (players, optional - informational only, never blocks check-in)</label>
-                <input type="number" id="cs-capacity" min="0" placeholder="No guideline">
-            </div>
-            <div class="field checkbox-row" style="padding-top: 22px;">
+            <div class="field checkbox-row">
                 <input type="checkbox" id="cs-square">
                 <label for="cs-square">Track payments (Member/Non-Member/etc. + amounts) - adds a Payment column at check-in</label>
             </div>
         </div>
+        <div class="row">
+            <div class="field checkbox-row">
+                <input type="checkbox" id="cs-gender-aware">
+                <label for="cs-gender-aware">Prefer mixed/same-gender doubles when auto-generating rounds (over a 3-1 gender split or segregated sides)</label>
+            </div>
+        </div>
         <button class="primary" id="cs-save">Save settings</button><span class="save-note" id="cs-saved"></span>
+
+        <div class="row" style="margin-top: 20px; align-items: center;">
+            <img id="icon-preview" class="icon-preview-thumb" src="/api/branding/icon" alt="Club icon">
+            <div class="field">
+                <label>Club icon</label>
+                <input type="file" id="icon-file" accept="image/png,image/jpeg,image/webp">
+                <p class="muted" style="margin: 4px 0 0;">PNG, JPG or WebP, up to 2MB. Used for the browser tab icon, the header logo, and the desktop shortcut icon.</p>
+            </div>
+        </div>
+        <span class="save-note" id="icon-saved"></span>
     </section>
 
     <section class="panel" data-section="club-details">
@@ -127,6 +140,7 @@
 </main>
 
 <script src="/events.js"></script>
+<script src="/branding.js"></script>
 <script src="/club.js"></script>
 <script src="/pwa.js"></script>
 </body>

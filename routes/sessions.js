@@ -1,6 +1,7 @@
 const express = require('express');
 const store = require('../db/store');
 const { broadcast } = require('../lib/eventBus');
+const { ADHOC_PAYMENT_CATEGORY_NAMES } = require('../db/index');
 
 const router = express.Router();
 
@@ -55,8 +56,11 @@ router.post('/start', (req, res) => {
     const o = overrides || {};
     const mode = o.mode && MODES.includes(o.mode) ? o.mode : template.default_mode;
     const max_capacity = o.max_capacity !== undefined ? o.max_capacity : template.default_max_capacity;
-    const game_minutes = o.game_minutes !== undefined ? o.game_minutes : null;
-    const break_minutes = o.break_minutes !== undefined ? o.break_minutes : null;
+    // Falls through to the template's own default when set, then further to
+    // club_settings.default_game_minutes/break_minutes at round-start time
+    // (see lib/roundLifecycle.js) if the template doesn't set one either.
+    const game_minutes = o.game_minutes !== undefined ? o.game_minutes : template.default_game_minutes;
+    const break_minutes = o.break_minutes !== undefined ? o.break_minutes : template.default_break_minutes;
 
     // court_ids override replaces the template's normal set for this session only;
     // the template's own session_template_courts rows are never touched.
@@ -147,6 +151,23 @@ router.post('/', (req, res) => {
                 store.run('INSERT INTO session_payment_rates (session_id, payment_category_id, amount_cents) VALUES (?, ?, ?)',
                     [id, r.payment_category_id, Math.round(r.amount_cents) || 0]);
             }
+        } else {
+            // No rates given (the normal case for a genuinely ad-hoc session -
+            // there's no template to source them from). The club's own
+            // categories are membership tiers (Member/Non-Member/Concession),
+            // which don't fit a walk-in one-off event - use the generic
+            // Cash/Card/Voucher/Other set instead, all at $0 so staff type
+            // the real amount per player at check-in. With payment tracking
+            // on, a session with zero rates makes check-in impossible (the
+            // payment dropdown has nothing to select), so this also just
+            // guarantees there's always something to pick from.
+            const categories = store.query(
+                `SELECT id FROM payment_categories WHERE is_active = 1 AND name IN (${ADHOC_PAYMENT_CATEGORY_NAMES.map(() => '?').join(',')})`,
+                ADHOC_PAYMENT_CATEGORY_NAMES
+            );
+            for (const c of categories) {
+                store.run('INSERT INTO session_payment_rates (session_id, payment_category_id, amount_cents) VALUES (?, ?, 0)', [id, c.id]);
+            }
         }
         store.persist();
         broadcast('session', { session_id: id });
@@ -201,6 +222,28 @@ router.get('/:id/courts', (req, res) => {
 
 router.get('/:id/payment-rates', (req, res) => {
     res.json(paymentRatesForSession(req.params.id));
+});
+
+// Replaces a session's payment rates wholesale - lets staff fix up an
+// existing session (e.g. an ad-hoc one that was somehow left with none) or
+// change pricing mid-session without needing to close and restart it.
+router.put('/:id/payment-rates', (req, res) => {
+    const session = store.queryOne('SELECT id FROM sessions WHERE id = ?', [req.params.id]);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const rates = req.body.payment_rates;
+    if (!Array.isArray(rates)) return res.status(400).json({ error: 'payment_rates array is required' });
+    try {
+        store.run('DELETE FROM session_payment_rates WHERE session_id = ?', [req.params.id]);
+        for (const r of rates) {
+            store.run('INSERT INTO session_payment_rates (session_id, payment_category_id, amount_cents) VALUES (?, ?, ?)',
+                [req.params.id, r.payment_category_id, Math.round(r.amount_cents) || 0]);
+        }
+        store.persist();
+        broadcast('session', { session_id: Number(req.params.id) });
+        res.json(paymentRatesForSession(req.params.id));
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
 module.exports = router;

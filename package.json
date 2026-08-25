@@ -12,7 +12,8 @@
     "csv:test": "node lib/csvImport.test.js",
     "csv:sample": "node lib/csvImport.sample.js",
     "autogen:test": "node lib/autoGenerate.test.js",
-    "report:test": "node lib/sessionReport.test.js"
+    "report:test": "node lib/sessionReport.test.js",
+    "roundbuilder:test": "node public/roundBuilder.test.js"
   },
   "dependencies": {
     "exceljs": "4.4.0",

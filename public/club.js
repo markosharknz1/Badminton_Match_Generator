@@ -9,6 +9,8 @@ let courts = []; // full courts table rows
 let matrixState = {}; // "A-B" -> bool (canonical: both directions kept equal)
 let templates = [];
 let paymentCategories = [];
+let editingTemplateKey = null; // template.id currently in edit mode (or 'new'); only one at a time
+let justSavedTemplateKey = null; // briefly flashes "Saved" on the card that just collapsed back to read-only
 
 function $(sel) { return document.querySelector(sel); }
 
@@ -39,6 +41,10 @@ function flashSaved(sel) {
     setTimeout(() => { el.textContent = ''; }, 2000);
 }
 
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
 // --- Section switcher ---
 function showSettingsSection(name) {
     document.querySelectorAll('[data-section]').forEach((el) => {
@@ -53,11 +59,13 @@ showSettingsSection($('#settings-section').value);
 async function loadSettings() {
     const s = await api('/api/club-settings');
     $('#club-name').textContent = s.club_name;
+    applyBranding(s);
     $('#cs-name').value = s.club_name;
     $('#cs-game').value = s.default_game_minutes;
     $('#cs-break').value = s.default_break_minutes;
-    $('#cs-capacity').value = s.max_capacity ?? '';
     $('#cs-square').checked = !!s.square_enabled;
+    $('#cs-gender-aware').checked = !!s.gender_aware_pairing;
+    $('#icon-preview').src = `/api/branding/icon?v=${s.club_icon_ver || 0}`;
     $('#email-api-key').value = s.smtp2go_api_key || '';
     $('#email-sender-address').value = s.smtp2go_sender_email || '';
     $('#email-sender-name').value = s.smtp2go_sender_name || '';
@@ -67,15 +75,14 @@ async function loadSettings() {
 
 $('#cs-save').addEventListener('click', async () => {
     try {
-        const capacity = $('#cs-capacity').value;
         const saved = await api('/api/club-settings', {
             method: 'PUT',
             body: JSON.stringify({
                 club_name: $('#cs-name').value.trim(),
                 default_game_minutes: Number($('#cs-game').value),
                 default_break_minutes: Number($('#cs-break').value),
-                max_capacity: capacity === '' ? null : Number(capacity),
                 square_enabled: $('#cs-square').checked,
+                gender_aware_pairing: $('#cs-gender-aware').checked,
             }),
         });
         $('#club-name').textContent = saved.club_name;
@@ -83,6 +90,57 @@ $('#cs-save').addEventListener('click', async () => {
         flashSaved('#cs-saved');
     } catch (err) {
         showError(err.message);
+    }
+});
+
+// --- Club icon (favicon, header logo, desktop shortcut icon) ---
+// Resizes client-side to a square 256x256 PNG (cover-crop, matching the
+// Club Training app's approach) before upload - the server re-validates
+// independently either way.
+function resizeImageToPng(file, size) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const scale = Math.max(size / img.width, size / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+            URL.revokeObjectURL(img.src);
+            canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not process that image.'))), 'image/png');
+        };
+        img.onerror = () => reject(new Error('Could not read that image file - is it a valid PNG, JPG or WebP?'));
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+$('#icon-file').addEventListener('change', async () => {
+    const file = $('#icon-file').files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+        showError('Icon must be 2MB or smaller.');
+        $('#icon-file').value = '';
+        return;
+    }
+    try {
+        const blob = await resizeImageToPng(file, 256);
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const result = await api('/api/branding/icon', {
+            method: 'POST',
+            headers: { 'Content-Type': 'image/png' },
+            body: bytes,
+        });
+        $('#icon-preview').src = `/api/branding/icon?v=${result.version}`;
+        applyBranding({ club_icon_ver: result.version });
+        showError('');
+        flashSaved('#icon-saved');
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        $('#icon-file').value = '';
     }
 });
 
@@ -296,7 +354,12 @@ async function loadTemplates() {
     renderTemplates();
 }
 
-function templateCardHtml(t, idx) {
+// Rotation guideline: a soft, informational headcount target for this
+// session type - shown to staff at check-in as a "getting full" hint, but
+// never blocks anyone from checking in.
+const ROTATION_GUIDELINE_HELP = 'How many players this session type comfortably fits (e.g. courts × 4-6). Purely informational - shown at check-in as a hint, never blocks anyone.';
+
+function templateEditHtml(t, idx) {
     const isNew = !t.id;
     const activeCourts = courts.filter((c) => c.is_active);
     const templateCourtIds = new Set((t.courts || []).map((c) => c.court_id));
@@ -305,11 +368,11 @@ function templateCardHtml(t, idx) {
     return `
         <div class="template-card" data-idx="${idx}">
             <div class="template-card-header">
-                <strong>${isNew ? 'New template' : t.label}</strong>
+                <strong>${isNew ? 'New template' : esc(t.label)}</strong>
                 ${isNew ? '' : `<button class="small" data-action="delete" data-idx="${idx}">Delete</button>`}
             </div>
             <div class="row">
-                <div class="field"><label>Label</label><input type="text" data-field="label" value="${t.label || ''}"></div>
+                <div class="field"><label>Label</label><input type="text" data-field="label" value="${esc(t.label || '')}"></div>
                 <div class="field">
                     <label>Day</label>
                     <select data-field="day_of_week">${DAYS.map((d) => `<option value="${d}" ${t.day_of_week === d ? 'selected' : ''}>${d}</option>`).join('')}</select>
@@ -326,7 +389,21 @@ function templateCardHtml(t, idx) {
                         <option value="social" ${t.default_mode === 'social' ? 'selected' : ''}>Social (check-in + payment only, no rounds)</option>
                     </select>
                 </div>
-                <div class="field"><label>Rotation guideline (optional)</label><input type="number" min="0" data-field="default_max_capacity" value="${t.default_max_capacity ?? ''}"></div>
+                <div class="field">
+                    <label>Rotation guideline (optional)</label>
+                    <input type="number" min="0" data-field="default_max_capacity" value="${t.default_max_capacity ?? ''}" placeholder="No guideline">
+                    <p class="muted" style="font-size:0.78rem; margin: 4px 0 0;">${ROTATION_GUIDELINE_HELP}</p>
+                </div>
+            </div>
+            <div class="row">
+                <div class="field">
+                    <label>Game length (minutes, optional)</label>
+                    <input type="number" min="1" data-field="default_game_minutes" value="${t.default_game_minutes ?? ''}" placeholder="Use club default">
+                </div>
+                <div class="field">
+                    <label>Changeover length (minutes, optional)</label>
+                    <input type="number" min="0" data-field="default_break_minutes" value="${t.default_break_minutes ?? ''}" placeholder="Use club default">
+                </div>
             </div>
             <div class="field">
                 <label>Normal courts</label>
@@ -341,24 +418,61 @@ function templateCardHtml(t, idx) {
                 <div class="row">
                     ${activeCategories.length ? activeCategories.map((c) => `
                         <div class="field" style="min-width:130px;">
-                            <label class="muted" style="font-size:0.75rem;">${c.name}</label>
+                            <label class="muted" style="font-size:0.75rem;">${esc(c.name)}</label>
                             <input type="number" min="0" step="0.01" data-rate-category-id="${c.id}" value="${((rateByCategory.get(c.id) ?? 0) / 100).toFixed(2)}">
                         </div>
                     `).join('') : '<p class="muted">No payment categories yet - add some above.</p>'}
                 </div>
             </div>
-            <button class="primary small" data-action="save" data-idx="${idx}">${isNew ? 'Create template' : 'Save changes'}</button>
+            <div class="row" style="justify-content: flex-start;">
+                <button class="primary small" data-action="save" data-idx="${idx}" style="flex: none;">${isNew ? 'Create template' : 'Save changes'}</button>
+                ${isNew ? '' : `<button class="small" data-action="cancel" data-idx="${idx}" style="flex: none;">Cancel</button>`}
+            </div>
+        </div>
+    `;
+}
+
+function templateReadonlyHtml(t, idx) {
+    const courtNumbers = (t.courts || [])
+        .slice().sort((a, b) => a.court_number - b.court_number)
+        .map((c) => c.court_number).join(', ') || 'none';
+    const activeCategories = paymentCategories.filter((c) => c.is_active);
+    const rateByCategory = new Map((t.payment_rates || []).map((r) => [r.payment_category_id, r.amount_cents]));
+    const priceSummary = activeCategories.length
+        ? activeCategories.map((c) => `${esc(c.name)} $${((rateByCategory.get(c.id) ?? 0) / 100).toFixed(2)}`).join(', ')
+        : 'no payment categories configured';
+    const modeLabel = t.default_mode === 'auto' ? 'Auto' : t.default_mode === 'social' ? 'Social' : 'Manual';
+    return `
+        <div class="template-card" data-idx="${idx}">
+            <div class="template-card-header">
+                <span><strong>${esc(t.label)}</strong>${t.id === justSavedTemplateKey ? '<span class="save-note">Saved</span>' : ''}</span>
+                <span>
+                    <button class="small" data-action="edit" data-idx="${idx}">Edit</button>
+                    <button class="small" data-action="delete" data-idx="${idx}">Delete</button>
+                </span>
+            </div>
+            <p class="muted">${t.day_of_week} ${t.start_time}-${t.end_time} &middot; ${modeLabel} mode &middot; Courts ${courtNumbers}${t.default_max_capacity ? ` &middot; guideline ${t.default_max_capacity} players` : ''}${t.default_game_minutes ? ` &middot; ${t.default_game_minutes}min games` : ''}${t.default_break_minutes ? ` &middot; ${t.default_break_minutes}min changeovers` : ''}</p>
+            <p class="muted">Prices: ${priceSummary}</p>
         </div>
     `;
 }
 
 function renderTemplates() {
-    $('#template-list').innerHTML = templates.map((t, idx) => templateCardHtml(t, idx)).join('');
+    $('#template-list').innerHTML = templates.map((t, idx) => {
+        const isNew = !t.id;
+        const editing = isNew || t.id === editingTemplateKey;
+        return editing ? templateEditHtml(t, idx) : templateReadonlyHtml(t, idx);
+    }).join('');
     document.querySelectorAll('#template-list button[data-action]').forEach((btn) => {
         const idx = Number(btn.dataset.idx);
         btn.addEventListener('click', () => {
             if (btn.dataset.action === 'save') saveTemplate(idx);
             else if (btn.dataset.action === 'delete') deleteTemplate(idx);
+            else if (btn.dataset.action === 'edit') { editingTemplateKey = templates[idx].id; renderTemplates(); }
+            else if (btn.dataset.action === 'cancel') {
+                if (templates[idx].id) { editingTemplateKey = null; renderTemplates(); }
+                else { templates.splice(idx, 1); renderTemplates(); } // discard an unsaved new template entirely
+            }
         });
     });
 }
@@ -367,6 +481,8 @@ function readTemplateCard(idx) {
     const card = document.querySelector(`.template-card[data-idx="${idx}"]`);
     const value = (field) => card.querySelector(`[data-field="${field}"]`).value;
     const capacity = value('default_max_capacity');
+    const gameMinutes = value('default_game_minutes');
+    const breakMinutes = value('default_break_minutes');
     const payment_rates = Array.from(card.querySelectorAll('[data-rate-category-id]')).map((input) => ({
         payment_category_id: Number(input.dataset.rateCategoryId),
         amount_cents: Math.round(parseFloat(input.value || '0') * 100),
@@ -378,6 +494,8 @@ function readTemplateCard(idx) {
         end_time: value('end_time'),
         default_mode: value('default_mode'),
         default_max_capacity: capacity === '' ? null : Number(capacity),
+        default_game_minutes: gameMinutes === '' ? null : Number(gameMinutes),
+        default_break_minutes: breakMinutes === '' ? null : Number(breakMinutes),
         court_ids: Array.from(card.querySelectorAll('input[data-court-id]:checked')).map((i) => Number(i.dataset.courtId)),
         payment_rates,
     };
@@ -387,15 +505,23 @@ async function saveTemplate(idx) {
     const t = templates[idx];
     const body = readTemplateCard(idx);
     try {
+        let savedId = t.id;
         if (t.id) {
             await api(`/api/session-templates/${t.id}`, { method: 'PUT', body: JSON.stringify(body) });
             await api(`/api/session-templates/${t.id}/courts`, { method: 'PUT', body: JSON.stringify({ court_ids: body.court_ids }) });
             await api(`/api/session-templates/${t.id}/payment-rates`, { method: 'PUT', body: JSON.stringify({ rates: body.payment_rates }) });
         } else {
-            await api('/api/session-templates', { method: 'POST', body: JSON.stringify(body) });
+            const created = await api('/api/session-templates', { method: 'POST', body: JSON.stringify(body) });
+            savedId = created.id;
         }
         showError('');
+        // Collapse back to the read-only view - that state change (form ->
+        // summary + Edit button) is the visible "yes, this saved" signal,
+        // plus a brief "Saved" note next to the label.
+        editingTemplateKey = null;
+        justSavedTemplateKey = savedId;
         await loadTemplates();
+        setTimeout(() => { justSavedTemplateKey = null; renderTemplates(); }, 2000);
     } catch (err) {
         showError(err.message);
     }
