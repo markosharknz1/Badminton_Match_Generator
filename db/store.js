@@ -2,7 +2,7 @@
 // Every mutating call persists to disk immediately (persist()) - this is a
 // single-writer local app, not a high-throughput server, so simplicity and
 // durability win over batching writes.
-const { openDb, applySchema, saveDb, ensureBaselineDefaults, ensureColumns, ensureAdhocPaymentCategories, closeStaleOpenSessions, backupToDocuments, all, get } = require('./index');
+const { openDb, applySchema, saveDb, ensureBaselineDefaults, ensureColumns, markLegacyAdhocCategoriesSystem, closeStaleOpenSessions, backupToDocuments, all, get } = require('./index');
 
 let db = null;
 
@@ -11,7 +11,7 @@ async function init() {
     applySchema(db); // safety net if db:init was never run
     ensureBaselineDefaults(db); // self-heals a schema-only DB (e.g. demo data declined at install)
     ensureColumns(db); // retrofits columns added after this DB was first created
-    ensureAdhocPaymentCategories(db); // Cash/Card/Voucher/Other for one-off sessions
+    markLegacyAdhocCategoriesSystem(db); // hide the old Cash/Card/Voucher categories from Settings, keep history intact
     closeStaleOpenSessions(db); // yesterday's session left open overnight doesn't block tonight's
     saveDb(db);
     backupToDocuments(); // one safety-net copy per launch to Documents\GameScheduler\backups

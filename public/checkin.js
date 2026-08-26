@@ -468,6 +468,7 @@ function openCheckinModal(playerId) {
         select.innerHTML = '<option value="" selected>Select payment&hellip;</option>'
             + sessionPaymentRates.map((r) => `<option value="${r.payment_category_id}" data-cents="${r.amount_cents}">${esc(r.name)}${r.amount_cents > 0 ? ` - ${formatCents(r.amount_cents)}` : ''}</option>`).join('');
         $('#cm-amount').value = '';
+        $('#cm-method').value = '';
         $('#cm-note').value = '';
         $('#cm-hint').style.display = 'none';
     } else {
@@ -614,7 +615,7 @@ $('#cm-checkin').addEventListener('click', async () => {
         const selectedRate = sessionPaymentRates.find((r) => String(r.payment_category_id) === categoryValue);
         const amountRaw = $('#cm-amount').value.trim();
         let amountDollars = 0;
-        if (amountRaw === '' && selectedRate?.name === 'Voucher') {
+        if (amountRaw === '' && selectedRate?.name === 'Sports Voucher') {
             amountDollars = 0;
         } else {
             amountDollars = parseFloat(amountRaw);
@@ -636,6 +637,7 @@ $('#cm-checkin').addEventListener('click', async () => {
     if (paymentTrackingEnabled) {
         patch.payment_category_id = categoryId;
         patch.payment_amount_cents = amountCents;
+        patch.payment_method = $('#cm-method').value || null;
         patch.payment_note = $('#cm-note').value.trim() || null;
     }
     if (visitorOrNewMember) {
@@ -693,6 +695,7 @@ function openPaymentModal(attendanceId) {
 
     const selectedRate = sessionPaymentRates.find((r) => r.payment_category_id === Number(select.value)) || sessionPaymentRates[0];
     $('#pm-amount').value = a.payment_amount_cents != null ? (a.payment_amount_cents / 100).toFixed(2) : ((selectedRate.amount_cents) / 100).toFixed(2);
+    $('#pm-method').value = a.payment_method || '';
     $('#pm-note').value = a.payment_note || '';
     $('#pm-visitor-new-member').checked = !!a.first_time || !!a.new_member;
     updatePaymentHint();
@@ -739,6 +742,7 @@ $('#pm-save').addEventListener('click', async () => {
             body: JSON.stringify({
                 payment_category_id: categoryId,
                 payment_amount_cents: Math.round(amountDollars * 100),
+                payment_method: $('#pm-method').value || null,
                 payment_note: $('#pm-note').value.trim() || null,
                 first_time: $('#pm-visitor-new-member').checked,
                 new_member: $('#pm-visitor-new-member').checked,

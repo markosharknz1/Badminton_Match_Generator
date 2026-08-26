@@ -71,26 +71,31 @@ function ensureBaselineDefaults(db) {
     }
 }
 
-// The club's own payment_categories are membership tiers (Member,
-// Non-Member, Concession, etc.) - the right fit for a recurring session
-// started from a template, but jarring for a genuine one-off/walk-in event
-// where nobody has a membership tier to pick from. Ad-hoc sessions use these
-// generic payment-method categories instead (see routes/sessions.js's ad-hoc
-// POST /sessions). Idempotent by name, so re-running never duplicates them
-// and a club is free to rename/deactivate them afterward like any other
-// category.
-const ADHOC_PAYMENT_CATEGORY_NAMES = ['Cash', 'Card', 'Voucher', 'Other'];
+// Payment CATEGORY is what type of player someone is (Member, Non-Member,
+// Concession, etc.) - the club's own editable pricing tiers, used for every
+// session including ad-hoc ones (see routes/sessions.js's ad-hoc POST
+// /sessions, which now seeds from these same categories rather than a
+// separate set). How they actually paid (Cash/Card/Voucher) is a
+// different, fixed dimension that follows whichever category was picked -
+// see attendance.payment_method - not a category itself.
+//
+// An earlier version of this app used Cash/Card/Voucher AS ad-hoc-session
+// categories, seeded directly into payment_categories - which cluttered
+// the club's real Settings list with entries the club never configured
+// and that didn't fit the "type of player" model at all. Real historical
+// attendance rows already reference those category ids, so they can't
+// simply be deleted without corrupting old records; instead this marks
+// them is_system so Settings and every "add a new category" flow can
+// filter them out going forward while old payment history still resolves
+// to a real name. Idempotent (only touches existing rows by name, never
+// inserts) and safe to call on every boot.
+const LEGACY_ADHOC_CATEGORY_NAMES = ['Cash', 'Card', 'Voucher'];
 
-function ensureAdhocPaymentCategories(db) {
-    const existingNames = new Set(all(db, 'SELECT name FROM payment_categories').map((r) => r.name));
-    const maxSortOrder = all(db, 'SELECT MAX(sort_order) AS m FROM payment_categories')[0].m ?? -1;
-    let nextSortOrder = maxSortOrder + 1;
-    for (const name of ADHOC_PAYMENT_CATEGORY_NAMES) {
-        if (!existingNames.has(name)) {
-            db.run('INSERT INTO payment_categories (name, sort_order) VALUES (?, ?)', [name, nextSortOrder]);
-            nextSortOrder++;
-        }
-    }
+function markLegacyAdhocCategoriesSystem(db) {
+    db.run(
+        `UPDATE payment_categories SET is_system = 1 WHERE name IN (${LEGACY_ADHOC_CATEGORY_NAMES.map(() => '?').join(',')})`,
+        LEGACY_ADHOC_CATEGORY_NAMES
+    );
 }
 
 // A session left 'open' overnight (staff forgot "Finish session", or the
@@ -126,6 +131,18 @@ function ensureColumns(db) {
     const attendanceCols = all(db, `PRAGMA table_info(attendance)`).map((c) => c.name);
     if (!attendanceCols.includes('new_member')) {
         db.run(`ALTER TABLE attendance ADD COLUMN new_member INTEGER NOT NULL DEFAULT 0 CHECK (new_member IN (0,1))`);
+    }
+    if (!attendanceCols.includes('payment_method')) {
+        // How they actually paid (Cash/Card/Voucher) - separate from
+        // payment_category_id, which is what TYPE of player they are
+        // (Member/Non-Member/etc.). See markLegacyAdhocCategoriesSystem's
+        // comment for why these used to be conflated.
+        db.run(`ALTER TABLE attendance ADD COLUMN payment_method TEXT CHECK (payment_method IN ('Cash','Card','Voucher'))`);
+    }
+
+    const paymentCategoryCols = all(db, `PRAGMA table_info(payment_categories)`).map((c) => c.name);
+    if (!paymentCategoryCols.includes('is_system')) {
+        db.run(`ALTER TABLE payment_categories ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0 CHECK (is_system IN (0,1))`);
     }
 
     const clubSettingsCols = all(db, `PRAGMA table_info(club_settings)`).map((c) => c.name);
@@ -217,6 +234,5 @@ function get(db, sql, params = []) {
 
 module.exports = {
     DB_PATH, SCHEMA_PATH, BACKUP_DIR, openDb, applySchema, saveDb, all, get,
-    ensureBaselineDefaults, ensureColumns, ensureAdhocPaymentCategories, closeStaleOpenSessions, backupToDocuments, listBackups,
-    ADHOC_PAYMENT_CATEGORY_NAMES,
+    ensureBaselineDefaults, ensureColumns, markLegacyAdhocCategoriesSystem, closeStaleOpenSessions, backupToDocuments, listBackups,
 };

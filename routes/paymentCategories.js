@@ -5,11 +5,15 @@ const { broadcast } = require('../lib/eventBus');
 const router = express.Router();
 
 // ?all=true includes inactive categories (for the Club settings management
-// list); omitted/false returns only active ones (for check-in payment pickers).
+// list); omitted/false returns only active ones (for check-in payment
+// pickers). Either way, is_system categories (the old Cash/Card/Voucher set,
+// kept only so historical payment records still resolve to a real name) are
+// never returned here - they're not a "type of player" and aren't offered
+// anywhere going forward. See db/index.js's markLegacyAdhocCategoriesSystem.
 router.get('/', (req, res) => {
     const sql = req.query.all === 'true'
-        ? 'SELECT * FROM payment_categories ORDER BY sort_order, name'
-        : 'SELECT * FROM payment_categories WHERE is_active = 1 ORDER BY sort_order, name';
+        ? 'SELECT * FROM payment_categories WHERE is_system = 0 ORDER BY sort_order, name'
+        : 'SELECT * FROM payment_categories WHERE is_active = 1 AND is_system = 0 ORDER BY sort_order, name';
     res.json(store.query(sql));
 });
 

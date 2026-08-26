@@ -1,7 +1,6 @@
 const express = require('express');
 const store = require('../db/store');
 const { broadcast } = require('../lib/eventBus');
-const { ADHOC_PAYMENT_CATEGORY_NAMES } = require('../db/index');
 const { paymentBreakdown, uniquePlayerCount } = require('../lib/sessionReport');
 
 const router = express.Router();
@@ -177,17 +176,21 @@ router.post('/', (req, res) => {
             }
         } else {
             // No rates given (the normal case for a genuinely ad-hoc session -
-            // there's no template to source them from). The club's own
-            // categories are membership tiers (Member/Non-Member/Concession),
-            // which don't fit a walk-in one-off event - use the generic
-            // Cash/Card/Voucher/Other set instead, all at $0 so staff type
-            // the real amount per player at check-in. With payment tracking
-            // on, a session with zero rates makes check-in impossible (the
-            // payment dropdown has nothing to select), so this also just
-            // guarantees there's always something to pick from.
+            // there's no template to source them from). Payment category is
+            // what TYPE of player someone is (Member/Non-Member/Concession/
+            // etc.) - that's true for a walk-in one-off event too, so it
+            // uses the same club-wide categories as a templated session,
+            // all at $0 so staff type the real amount per player at
+            // check-in. is_system categories (the old Cash/Card/Voucher set,
+            // kept only for historical payment records) are excluded - how
+            // someone paid is recorded separately via
+            // attendance.payment_method, not as a category. With payment
+            // tracking on, a session with zero rates makes check-in
+            // impossible (the payment dropdown has nothing to select), so
+            // this also just guarantees there's always something to pick
+            // from.
             const categories = store.query(
-                `SELECT id FROM payment_categories WHERE is_active = 1 AND name IN (${ADHOC_PAYMENT_CATEGORY_NAMES.map(() => '?').join(',')})`,
-                ADHOC_PAYMENT_CATEGORY_NAMES
+                `SELECT id FROM payment_categories WHERE is_active = 1 AND is_system = 0`
             );
             for (const c of categories) {
                 store.run('INSERT INTO session_payment_rates (session_id, payment_category_id, amount_cents) VALUES (?, ?, 0)', [id, c.id]);

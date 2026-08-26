@@ -25,15 +25,22 @@ CREATE TABLE IF NOT EXISTS courts (
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1))
 );
 
--- Editable list of payment tiers (Member, Non-Member, Concession, etc.).
+-- Editable list of payment tiers (Member, Non-Member, Concession, etc.) -
+-- what TYPE of player someone is, which is what pricing actually follows.
 -- Prices are NOT stored here - they're set per session_template (and copied
 -- into a session when started), since different session types charge
--- different prices, not one club-wide amount.
+-- different prices, not one club-wide amount. is_system rows (the fixed
+-- Cash/Card/Voucher set briefly used as ad-hoc-session categories) are kept
+-- for historical payment records but hidden from the club's own Settings
+-- list and never offered as a new category - "how someone paid" moved to
+-- attendance.payment_method instead, a fixed field that follows whichever
+-- real category (player type) was picked, not a category itself.
 CREATE TABLE IF NOT EXISTS payment_categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     sort_order INTEGER NOT NULL DEFAULT 0,
-    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1))
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1)),
+    is_system INTEGER NOT NULL DEFAULT 0 CHECK (is_system IN (0,1))
 );
 
 CREATE TABLE IF NOT EXISTS session_templates (
@@ -108,6 +115,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     left_reason TEXT CHECK (left_reason IN ('no-show','departed','injured','session_ended','removed')),
     payment_category_id INTEGER REFERENCES payment_categories(id),
     payment_amount_cents INTEGER,
+    payment_method TEXT CHECK (payment_method IN ('Cash','Card','Voucher')),
     payment_note TEXT,
     first_time INTEGER NOT NULL DEFAULT 0 CHECK (first_time IN (0,1)),
     new_member INTEGER NOT NULL DEFAULT 0 CHECK (new_member IN (0,1))

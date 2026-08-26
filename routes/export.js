@@ -26,11 +26,13 @@ router.get('/report.xlsx', async (req, res) => {
     const sheet = workbook.addWorksheet('Session trend');
 
     // Payment categories are club-configurable and can differ session to
-    // session (ad-hoc Cash/Card/Voucher/Other vs a template's Member/
-    // Non-Member/Concession tiers) - a fixed column set can't be assumed, so
-    // it's built from whatever categories actually appear across the rows
-    // being exported, with each row zero-filled for categories it didn't use.
+    // session - a fixed column set can't be assumed, so it's built from
+    // whatever categories actually appear across the rows being exported,
+    // with each row zero-filled for categories it didn't use. Payment
+    // method (Cash/Card/Voucher) is a separate, fixed dimension - what TYPE
+    // of player someone is (category) vs. HOW they paid (method).
     const paymentCategories = [...new Set(rows.flatMap((r) => r.payment_breakdown.map((p) => p.category)))].sort();
+    const paymentMethods = [...new Set(rows.flatMap((r) => (r.payment_method_breakdown || []).map((p) => p.method)))].sort();
 
     sheet.columns = [
         { header: 'Date', key: 'date', width: 14 },
@@ -59,6 +61,10 @@ router.get('/report.xlsx', async (req, res) => {
             { header: `${cat} (count)`, key: `pay_${cat}_count`, width: 16 },
             { header: `${cat} ($)`, key: `pay_${cat}_amount`, width: 12 },
         ]),
+        ...paymentMethods.flatMap((method) => [
+            { header: `Paid via ${method} (count)`, key: `method_${method}_count`, width: 20 },
+            { header: `Paid via ${method} ($)`, key: `method_${method}_amount`, width: 16 },
+        ]),
         { header: 'Total funds ($)', key: 'total_funds', width: 16 },
     ];
 
@@ -74,6 +80,13 @@ router.get('/report.xlsx', async (req, res) => {
             paymentCells[`pay_${cat}_count`] = p ? p.count : 0;
             paymentCells[`pay_${cat}_amount`] = p ? p.amount_cents / 100 : 0;
         }
+        const byMethod = new Map((r.payment_method_breakdown || []).map((p) => [p.method, p]));
+        const methodCells = {};
+        for (const method of paymentMethods) {
+            const p = byMethod.get(method);
+            methodCells[`method_${method}_count`] = p ? p.count : 0;
+            methodCells[`method_${method}_amount`] = p ? p.amount_cents / 100 : 0;
+        }
         sheet.addRow({
             ...r,
             grade_a: r.grade_counts.A,
@@ -88,6 +101,7 @@ router.get('/report.xlsx', async (req, res) => {
             senior: r.age_counts.senior,
             age_unknown: r.age_counts.unknown,
             ...paymentCells,
+            ...methodCells,
             total_funds: r.total_funds_cents / 100,
         });
     }
@@ -96,7 +110,7 @@ router.get('/report.xlsx', async (req, res) => {
     sheet.columns.forEach((col, i) => {
         if (i >= 4) col.alignment = { horizontal: 'right' };
     });
-    ['total_funds', ...paymentCategories.map((cat) => `pay_${cat}_amount`)].forEach((key) => {
+    ['total_funds', ...paymentCategories.map((cat) => `pay_${cat}_amount`), ...paymentMethods.map((method) => `method_${method}_amount`)].forEach((key) => {
         sheet.getColumn(key).numFmt = '$#,##0.00';
     });
 

@@ -6,6 +6,9 @@ const router = express.Router();
 
 const STATES = ['checked_in', 'here_today', 'playing', 'left'];
 const LEFT_REASONS = ['no-show', 'departed', 'injured', 'session_ended', 'removed'];
+// How someone paid - a fixed, non-editable field (not a club-configurable
+// category like payment_category_id, which is what TYPE of player they are).
+const PAYMENT_METHODS = ['Cash', 'Card', 'Voucher'];
 
 router.get('/sessions/:sessionId/attendance', (req, res) => {
     const { state } = req.query;
@@ -70,15 +73,19 @@ router.put('/attendance/:id', (req, res) => {
             return res.status(400).json({ error: 'payment_amount_cents must be a non-negative number' });
         }
     }
+    if (merged.payment_method !== null && merged.payment_method !== undefined && !PAYMENT_METHODS.includes(merged.payment_method)) {
+        return res.status(400).json({ error: `payment_method must be one of ${PAYMENT_METHODS.join(', ')}` });
+    }
     try {
         store.run(
-            `UPDATE attendance SET state=?, left_reason=?, payment_category_id=?, payment_amount_cents=?, payment_note=?, first_time=?, new_member=?
+            `UPDATE attendance SET state=?, left_reason=?, payment_category_id=?, payment_amount_cents=?, payment_method=?, payment_note=?, first_time=?, new_member=?
              WHERE id=?`,
             [
                 merged.state,
                 merged.state === 'left' ? merged.left_reason : null,
                 merged.payment_category_id ?? null,
                 merged.payment_amount_cents ?? null,
+                merged.payment_method ?? null,
                 merged.payment_note ?? null,
                 merged.first_time ? 1 : 0,
                 merged.new_member ? 1 : 0,
