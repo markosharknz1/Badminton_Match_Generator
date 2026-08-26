@@ -140,6 +140,7 @@ async function openSession(sessionId) {
         const data = await api(`/api/history/sessions/${sessionId}`);
         showView('session');
         $('#session-title').textContent = `${data.session.label || 'Session'} - ${data.session.date}`;
+        mountTonightSummary($('#session-payment-summary'), sessionId);
         const container = $('#session-rounds');
         if (data.rounds.length === 0) {
             container.innerHTML = '<p class="muted">No games were played in this session.</p>';

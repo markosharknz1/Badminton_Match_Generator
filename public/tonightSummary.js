@@ -34,18 +34,26 @@ function tonightSummaryHtml(data) {
     `;
 }
 
-async function mountTonightSummary(containerEl) {
+// sessionId is optional - omit it for "whichever session counts as
+// tonight" (Check-in/Rounds/History's landing view), or pass a specific
+// session's id to show that session's own breakdown instead (History's
+// per-session detail view, so a past night's Member/Non-Member/etc.
+// numbers are just as easy to pull up as tonight's).
+async function mountTonightSummary(containerEl, sessionId) {
     if (!containerEl) return;
     try {
-        const latestRes = await fetch('/api/sessions/latest');
-        if (!latestRes.ok) {
-            containerEl.innerHTML = '<p class="muted">No sessions yet.</p>';
-            return;
+        let id = sessionId;
+        if (!id) {
+            const latestRes = await fetch('/api/sessions/latest');
+            if (!latestRes.ok) {
+                containerEl.innerHTML = '<p class="muted">No sessions yet.</p>';
+                return;
+            }
+            id = (await latestRes.json()).id;
         }
-        const latest = await latestRes.json();
-        const res = await fetch(`/api/sessions/${latest.id}/payment-summary`);
+        const res = await fetch(`/api/sessions/${id}/payment-summary`);
         containerEl.innerHTML = tonightSummaryHtml(res.ok ? await res.json() : null);
     } catch (err) {
-        containerEl.innerHTML = '<p class="muted">Could not load tonight\'s totals.</p>';
+        containerEl.innerHTML = '<p class="muted">Could not load totals.</p>';
     }
 }

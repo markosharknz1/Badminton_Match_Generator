@@ -11,6 +11,7 @@
 </head>
 <body>
 <header class="app-header">
+    <img id="club-logo" alt="">
     <h1 id="club-name">Game Scheduler</h1>
     <nav class="app-nav">
         <a href="/checkin.html">Check-in</a>
@@ -19,8 +20,11 @@
         <a href="/history.html" class="active">History</a>
         <a href="/club.html">Settings</a>
     </nav>
-    <button type="button" id="install-app-btn" class="install-btn" style="display:none;">+ Install app</button>
-    <div class="session-meta"><a href="/display.html" target="_blank" class="external-display-link">External Display</a> Session history &amp; audit</div>
+    <div class="header-actions">
+        <a href="/display.html" target="_blank" class="external-display-link">External Display</a>
+        Session history &amp; audit
+        <button type="button" id="install-app-btn" class="install-btn" style="display:none;">+ Install app</button>
+    </div>
 </header>
 
 <main>
@@ -91,6 +95,10 @@
         <div class="breadcrumb"><a id="back-from-session">&larr; All sessions</a></div>
         <div class="panel">
             <h2 id="session-title"></h2>
+            <div id="session-payment-summary"><p class="muted">Loading...</p></div>
+        </div>
+        <div class="panel">
+            <h2>Rounds</h2>
             <div id="session-rounds"></div>
         </div>
     </section>

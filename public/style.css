@@ -21,15 +21,24 @@ body {
     font-size: 16px;
 }
 
+/* A plain space-between row made the nav's on-screen position drift from
+   page to page - it was distributed against whatever total width the
+   right-hand side happened to have (a page with just "External Display"
+   was a much narrower right side than one with the mode dropdown + Finish
+   session button too, so nav landed in a different spot each time). Now
+   title+nav sit flush-left with a fixed gap between them - never affected
+   by anything on the right - and .header-actions is pushed to the far
+   right edge via margin-left:auto, so its own content can vary in width
+   (a page-specific label, the mode dropdown, Finish session appearing/
+   disappearing) without moving anything to its left. */
 header.app-header {
     background: var(--panel);
     border-bottom: 1px solid var(--border);
     padding: 12px 20px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 24px;
 }
 
 header.app-header h1 {
@@ -37,27 +46,32 @@ header.app-header h1 {
     margin: 0;
 }
 
+/* Reserved at a fixed size from the start (present in every page's HTML,
+   not inserted into the DOM later by branding.js) so the club icon
+   loading in doesn't shove the title/nav/actions sideways after the
+   header has already painted. */
 header.app-header #club-logo {
     width: 28px;
     height: 28px;
     border-radius: 6px;
-    margin-right: 10px;
     object-fit: cover;
+    flex: none;
 }
 
-header.app-header .session-meta {
+header.app-header .header-actions {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
+    margin-left: auto;
     color: var(--muted);
     font-size: 0.9rem;
 }
 
 /* The global input/select width:100% rule (meant for stacked form fields
    inside .field) was stretching this bare dropdown to fill the entire
-   .session-meta row, forcing everything after it onto its own line. */
-header.app-header .session-meta select {
+   .header-actions row, forcing everything after it onto its own line. */
+header.app-header .header-actions select {
     width: auto;
 }
 
