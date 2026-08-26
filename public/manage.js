@@ -321,11 +321,15 @@ async function renderRoundGamesPanel() {
     $('#active-games-panel').classList.toggle('up-next', status === 'staged');
     $('#active-round-minus').disabled = viewedRound <= 1;
     $('#active-round-plus').disabled = viewedRound >= defaultViewedRound();
+    const sideLines = (g, sideNum) => g.players
+        .filter((p) => p.side === sideNum)
+        .map((p) => `<div class="active-game-player">${p.first_name} ${p.last_name}${skillBadge(p.skill_level_at_time)}</div>`)
+        .join('');
     $('#active-games-grid').innerHTML = games.map((g) => `
         <div class="active-game-card">
             <h4>Court ${courtNumberFor(g.court_id)} <span class="muted">(${g.format})</span></h4>
-            <div class="side-line"><strong>1:</strong> ${g.players.filter((p) => p.side === 1).map((p) => `${p.first_name} ${p.last_name}${skillBadge(p.skill_level_at_time)}`).join(', ')}</div>
-            <div class="side-line"><strong>2:</strong> ${g.players.filter((p) => p.side === 2).map((p) => `${p.first_name} ${p.last_name}${skillBadge(p.skill_level_at_time)}`).join(', ')}</div>
+            <div class="active-game-side">${sideLines(g, 1)}</div>
+            <div class="active-game-side">${sideLines(g, 2)}</div>
         </div>
     `).join('') || `<p class="muted">${status === 'staged' ? 'Nothing staged for next round yet.' : 'No games recorded for this round.'}</p>`;
 }

@@ -598,7 +598,10 @@ nav.app-nav a.active {
 }
 
 .active-game-card h4 { margin: 0 0 8px; font-size: 0.9rem; }
-.active-game-card .side-line { font-size: 0.85rem; margin-bottom: 2px; }
+
+.active-game-side { margin-bottom: 10px; }
+.active-game-side:last-child { margin-bottom: 0; }
+.active-game-player { font-size: 0.85rem; }
 
 /* Up next (staged, not yet on court) - amber instead of the live/green look,
    so a break-time preview never reads as "already playing". */

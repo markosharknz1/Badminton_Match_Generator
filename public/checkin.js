@@ -41,8 +41,12 @@ function esc(s) {
     return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+// Whole-dollar amounts are the common case - "$10.00" everywhere reads as
+// noise when it's almost always a round number. Cents still show when a
+// club actually uses them (e.g. "$9.50").
 function formatCents(cents) {
-    return `$${((cents ?? 0) / 100).toFixed(2)}`;
+    const dollars = (cents ?? 0) / 100;
+    return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
 }
 
 // --- Boot ---

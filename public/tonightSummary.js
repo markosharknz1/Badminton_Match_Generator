@@ -13,6 +13,14 @@ function tonightSummaryEsc(s) {
     return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+// Whole-dollar amounts are the common case - "$10.00" everywhere reads as
+// noise when it's almost always a round number. Cents still show when a
+// club actually uses them (e.g. "$9.50").
+function tonightDollars(cents) {
+    const dollars = (cents ?? 0) / 100;
+    return Number.isInteger(dollars) ? String(dollars) : dollars.toFixed(2);
+}
+
 // Payment method is a fixed small set (see routes/attendance.js's
 // PAYMENT_METHODS) - a real grid column per method, not text crammed into
 // one cell. One row per category (Member, Non-Member, Member Concession,
@@ -45,7 +53,7 @@ function tonightSummaryHtml(data, title) {
         <tr>
             <td>${tonightSummaryEsc(c.category)}</td>
             ${TONIGHT_METHODS.map((method) => `<td class="num">${methodCount(c, method)}</td>`).join('')}
-            <td class="num">$${(c.amount_cents / 100).toFixed(2)}</td>
+            <td class="num">$${tonightDollars(c.amount_cents)}</td>
         </tr>
     `).join('');
 
@@ -60,8 +68,8 @@ function tonightSummaryHtml(data, title) {
             <tbody>${rows}</tbody>
             <tfoot><tr class="tonight-total-row">
                 <td>Total</td>
-                ${TONIGHT_METHODS.map((method) => `<td class="num">$${(columnTotalCents(method) / 100).toFixed(2)}</td>`).join('')}
-                <td class="num">$${(data.total_funds_cents / 100).toFixed(2)}</td>
+                ${TONIGHT_METHODS.map((method) => `<td class="num">$${tonightDollars(columnTotalCents(method))}</td>`).join('')}
+                <td class="num">$${tonightDollars(data.total_funds_cents)}</td>
             </tr></tfoot>
         </table>
     `;
