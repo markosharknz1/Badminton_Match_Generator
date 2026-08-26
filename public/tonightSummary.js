@@ -13,10 +13,13 @@ function tonightSummaryEsc(s) {
     return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
-// One row per category (Member, Non-Member, Member Concession, ...) with
-// its payment-method split inline in the same row ("2 Cash, 1 Card"), one
-// totals row at the end - not a separate table per dimension, which just
-// repeated the same counts/amounts twice for no extra information.
+// Payment method is a fixed small set (see routes/attendance.js's
+// PAYMENT_METHODS) - a real grid column per method, not text crammed into
+// one cell. One row per category (Member, Non-Member, Member Concession,
+// ...), one column per method showing that category's count paid that way,
+// a Total ($) column, and one totals row at the end.
+const TONIGHT_METHODS = ['Cash', 'Card', 'Voucher'];
+
 function tonightSummaryHtml(data) {
     if (!data) return '<p class="muted">No sessions yet.</p>';
     const categories = data.payment_breakdown;
@@ -28,18 +31,32 @@ function tonightSummaryHtml(data) {
     `;
     if (!categories.length) return `${headline}<p class="muted">No payments recorded yet.</p>`;
 
-    const totalCount = categories.reduce((sum, c) => sum + c.count, 0);
-    const rows = categories.map((c) => {
-        const methods = (c.methods || []).map((m) => `${m.count} ${tonightSummaryEsc(m.method)}`).join(', ') || '<span class="muted">-</span>';
-        return `<tr><td>${tonightSummaryEsc(c.category)}</td><td>${methods}</td><td class="num">${c.count}</td><td class="num">$${(c.amount_cents / 100).toFixed(2)}</td></tr>`;
-    }).join('');
+    const methodEntry = (c, method) => (c.methods || []).find((m) => m.method === method);
+    const methodCount = (c, method) => methodEntry(c, method)?.count || 0;
+    const columnTotalCents = (method) => categories.reduce((sum, c) => sum + (methodEntry(c, method)?.amount_cents || 0), 0);
 
+    const rows = categories.map((c) => `
+        <tr>
+            <td>${tonightSummaryEsc(c.category)}</td>
+            ${TONIGHT_METHODS.map((method) => `<td class="num">${methodCount(c, method)}</td>`).join('')}
+            <td class="num">$${(c.amount_cents / 100).toFixed(2)}</td>
+        </tr>
+    `).join('');
+
+    // Body rows show a headcount per method (how many paid this way); the
+    // totals row switches to dollar amounts per method instead of counts -
+    // that's the actual cash-up figure ("how much cash, how much card"),
+    // not how many people used each method.
     return `
         ${headline}
         <table class="history-table tonight-payment-table">
-            <thead><tr><th>Member type</th><th>Paid via</th><th class="num">Count</th><th class="num">Amount</th></tr></thead>
+            <thead><tr><th>Member type</th>${TONIGHT_METHODS.map((m) => `<th class="num">${m}</th>`).join('')}<th class="num">Total ($)</th></tr></thead>
             <tbody>${rows}</tbody>
-            <tfoot><tr class="tonight-total-row"><td colspan="2">Total</td><td class="num">${totalCount}</td><td class="num">$${(data.total_funds_cents / 100).toFixed(2)}</td></tr></tfoot>
+            <tfoot><tr class="tonight-total-row">
+                <td>Total</td>
+                ${TONIGHT_METHODS.map((method) => `<td class="num">$${(columnTotalCents(method) / 100).toFixed(2)}</td>`).join('')}
+                <td class="num">$${(data.total_funds_cents / 100).toFixed(2)}</td>
+            </tr></tfoot>
         </table>
     `;
 }
