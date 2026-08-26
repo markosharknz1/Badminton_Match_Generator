@@ -248,10 +248,40 @@ function reportRangeQs() {
     return params.toString() ? `?${params.toString()}` : '';
 }
 
-$('#report-download').addEventListener('click', () => {
-    // Direct navigation so the browser handles the file download with the
-    // server-set filename; no fetch/blob juggling needed.
-    window.location.href = `/api/export/report.xlsx${reportRangeQs()}`;
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+$('#report-download').addEventListener('click', async () => {
+    const url = `/api/export/report.xlsx${reportRangeQs()}`;
+    // Inside the native app shell (launcher.py), a plain navigation/<a
+    // href> to a Content-Disposition:attachment response doesn't trigger
+    // WebView2's download handling - the click just does nothing, same
+    // underlying gap the Display link workaround exists for (see pwa.js).
+    // Fetch the file ourselves and hand it to pywebview's own Save As
+    // dialog instead. Regular browser tabs (e.g. the installed PWA) never
+    // get window.pywebview, so this falls through to the normal
+    // navigation-based download there.
+    if (window.pywebview?.api?.save_file) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) { showError(`Export failed (${res.status})`); return; }
+            const disposition = res.headers.get('content-disposition') || '';
+            const filename = disposition.match(/filename="([^"]+)"/)?.[1] || 'session-trend.xlsx';
+            const base64 = await blobToBase64(await res.blob());
+            const result = await window.pywebview.api.save_file(filename, base64);
+            if (!result.ok && !result.cancelled) showError('Could not save the file.');
+        } catch (err) {
+            showError(err.message);
+        }
+        return;
+    }
+    window.location.href = url;
 });
 
 // --- Boot ---

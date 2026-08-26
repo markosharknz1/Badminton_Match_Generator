@@ -253,6 +253,26 @@ def main():
                 height=800,
             )
 
+        def save_file(self, filename, data_base64):
+            """Native "Save As" dialog + write to disk, for downloads (e.g.
+            History's .xlsx export) - see history.js. A plain <a
+            href="...">/window.location.href navigation to a
+            Content-Disposition:attachment response is a normal-browser
+            trick that WebView2 doesn't handle inside a pywebview window
+            (same underlying reason open_display exists above), so the page
+            fetches the file itself and hands the bytes to this instead.
+            """
+            import base64
+            paths = webview.windows[0].create_file_dialog(
+                webview.SAVE_DIALOG, save_filename=filename
+            )
+            if not paths:
+                return {'ok': False, 'cancelled': True}
+            path = paths[0]
+            with open(path, 'wb') as f:
+                f.write(base64.b64decode(data_base64))
+            return {'ok': True, 'path': path}
+
     server_process = start_server()
 
     def on_closed():

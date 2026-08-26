@@ -30,30 +30,8 @@
 <main>
     <div id="error-banner" class="error-banner" style="display:none;"></div>
 
-    <!-- Landing: list of sessions + player lookup -->
+    <!-- Landing: calendar, export, session list, then player lookup -->
     <section id="landing-view">
-        <div class="panel">
-            <h2>Look up a player's history</h2>
-            <p class="muted">See every game a player has appeared in, with the grade they were officially playing at that night.</p>
-            <div class="filter-bar">
-                <div class="field player-search-wrap" style="flex:2;">
-                    <label>Player</label>
-                    <input type="text" id="player-search" placeholder="Type a name..." autocomplete="off">
-                    <div class="player-search-results" id="player-search-results"></div>
-                </div>
-                <div class="field"><label>From</label><input type="date" id="filter-from"></div>
-                <div class="field"><label>To</label><input type="date" id="filter-to"></div>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h2>Export session trend</h2>
-            <p class="muted">Download one row per session as a real Excel file - headcount, rounds, membership breakdown, grade/gender/age of who played, and the full payment-category breakdown - to chart growth over time or reconcile funds. Uses the date range set above (leave blank for all sessions). Click into a session below to see its own player/payment totals.</p>
-            <div class="filter-bar">
-                <button class="primary" id="report-download">Download .xlsx</button>
-            </div>
-        </div>
-
         <div class="panel">
             <div class="calendar-header">
                 <button id="calendar-prev" class="small">&lsaquo; Prev</button>
@@ -72,6 +50,14 @@
         </div>
 
         <div class="panel">
+            <h2>Export session trend</h2>
+            <p class="muted">Download one row per session as a real Excel file - headcount, rounds, membership breakdown, grade/gender/age of who played, and the full payment-category breakdown - to chart growth over time or reconcile funds. Uses the date range set below (leave blank for all sessions). Click into a session below to see its own player/payment totals.</p>
+            <div class="filter-bar">
+                <button class="primary" id="report-download">Download .xlsx</button>
+            </div>
+        </div>
+
+        <div class="panel">
             <h2>All sessions</h2>
             <table class="history-table" id="sessions-table">
                 <thead>
@@ -82,6 +68,20 @@
                 </thead>
                 <tbody></tbody>
             </table>
+        </div>
+
+        <div class="panel">
+            <h2>Look up a player's history</h2>
+            <p class="muted">See every game a player has appeared in, with the grade they were officially playing at that night. The date range below also applies to the Export session trend .xlsx above.</p>
+            <div class="filter-bar">
+                <div class="field player-search-wrap" style="flex:2;">
+                    <label>Player</label>
+                    <input type="text" id="player-search" placeholder="Type a name..." autocomplete="off">
+                    <div class="player-search-results" id="player-search-results"></div>
+                </div>
+                <div class="field"><label>From</label><input type="date" id="filter-from"></div>
+                <div class="field"><label>To</label><input type="date" id="filter-to"></div>
+            </div>
         </div>
     </section>
 
