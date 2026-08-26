@@ -13,33 +13,34 @@ function tonightSummaryEsc(s) {
     return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
-function tonightPaymentTable(title, entries, labelKey, totalCents) {
-    if (!entries.length) return '';
-    const rows = entries.map((p) => `
-        <tr><td>${tonightSummaryEsc(p[labelKey])}</td><td class="num">${p.count}</td><td class="num">$${(p.amount_cents / 100).toFixed(2)}</td></tr>
-    `).join('');
-    const totalCount = entries.reduce((sum, p) => sum + p.count, 0);
-    return `
-        <div class="tonight-subheading">${title}</div>
-        <table class="history-table tonight-payment-table">
-            <thead><tr><th>${title}</th><th class="num">Count</th><th class="num">Amount</th></tr></thead>
-            <tbody>${rows}</tbody>
-            <tfoot><tr class="tonight-total-row"><td>Total</td><td class="num">${totalCount}</td><td class="num">$${(totalCents / 100).toFixed(2)}</td></tr></tfoot>
-        </table>
-    `;
-}
-
+// One row per category (Member, Non-Member, Member Concession, ...) with
+// its payment-method split inline in the same row ("2 Cash, 1 Card"), one
+// totals row at the end - not a separate table per dimension, which just
+// repeated the same counts/amounts twice for no extra information.
 function tonightSummaryHtml(data) {
     if (!data) return '<p class="muted">No sessions yet.</p>';
-    return `
+    const categories = data.payment_breakdown;
+    const headline = `
         <div class="tonight-headline">
             <strong>${data.unique_players}</strong> player${data.unique_players === 1 ? '' : 's'}
             <span class="muted"> - ${tonightSummaryEsc(data.session.label || 'Session')} (${tonightSummaryEsc(data.session.date)})</span>
         </div>
-        ${data.payment_breakdown.length ? `
-            ${tonightPaymentTable('Member type', data.payment_breakdown, 'category', data.total_funds_cents)}
-            ${tonightPaymentTable('Paid via', data.payment_method_breakdown || [], 'method', (data.payment_method_breakdown || []).reduce((sum, p) => sum + p.amount_cents, 0))}
-        ` : '<p class="muted">No payments recorded yet.</p>'}
+    `;
+    if (!categories.length) return `${headline}<p class="muted">No payments recorded yet.</p>`;
+
+    const totalCount = categories.reduce((sum, c) => sum + c.count, 0);
+    const rows = categories.map((c) => {
+        const methods = (c.methods || []).map((m) => `${m.count} ${tonightSummaryEsc(m.method)}`).join(', ') || '<span class="muted">-</span>';
+        return `<tr><td>${tonightSummaryEsc(c.category)}</td><td>${methods}</td><td class="num">${c.count}</td><td class="num">$${(c.amount_cents / 100).toFixed(2)}</td></tr>`;
+    }).join('');
+
+    return `
+        ${headline}
+        <table class="history-table tonight-payment-table">
+            <thead><tr><th>Member type</th><th>Paid via</th><th class="num">Count</th><th class="num">Amount</th></tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot><tr class="tonight-total-row"><td colspan="2">Total</td><td class="num">${totalCount}</td><td class="num">$${(data.total_funds_cents / 100).toFixed(2)}</td></tr></tfoot>
+        </table>
     `;
 }
 

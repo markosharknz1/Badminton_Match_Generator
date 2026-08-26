@@ -726,17 +726,6 @@ textarea {
     margin-bottom: 12px;
 }
 
-.tonight-subheading {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    margin: 16px 0 6px;
-}
-
-.tonight-subheading:first-of-type { margin-top: 0; }
-
 .tonight-payment-table {
     border-radius: 8px;
     overflow: hidden;
