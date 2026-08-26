@@ -35,6 +35,11 @@
 <main>
     <div id="error-banner" class="error-banner" style="display:none;"></div>
 
+    <section class="panel">
+        <h2>Tonight's totals</h2>
+        <div id="tonight-summary"><p class="muted">Loading...</p></div>
+    </section>
+
     <!-- Shown when there is no open session yet -->
     <section id="start-session-panel" class="panel" style="display:none;">
         <h2>Start today's session</h2>
@@ -213,6 +218,7 @@
 
 <script src="/events.js"></script>
 <script src="/branding.js"></script>
+<script src="/tonightSummary.js"></script>
 <script src="/checkin.js"></script>
 <script src="/pwa.js"></script>
 </body>

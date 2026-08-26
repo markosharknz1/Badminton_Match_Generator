@@ -702,6 +702,109 @@ textarea {
 .history-table tbody tr:hover { background: #f8fafc; }
 .history-table .num { text-align: center; }
 
+/* Tonight's totals widget (public/tonightSummary.js) - a solid dark header
+   banner and row striping, not the muted-uppercase look the rest of
+   History's tables use. Matches the table style from the club's other
+   admin app (Club Training), which the club specifically likes better
+   here. Shared across Check-in, Rounds, and History. */
+.tonight-headline {
+    font-size: 1.05rem;
+    margin-bottom: 12px;
+}
+
+.tonight-payment-table {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.tonight-payment-table thead th {
+    background: var(--text);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.82rem;
+    text-transform: none;
+    letter-spacing: normal;
+    border-bottom: none;
+    padding: 12px 14px;
+}
+
+.tonight-payment-table tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.tonight-payment-table tbody tr:nth-child(even) { background: #f8fafc; }
+.tonight-payment-table .tonight-total-row td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; }
+
+/* Month calendar of sessions (History page) - ported from the club's other
+   admin app (Club Training), same dark-header/bordered-grid look as the
+   tonight-summary table above. Each day cell lists that date's sessions as
+   small colored badges (green = open, gray = closed), click-through to the
+   session detail view already used by the "All sessions" table. */
+.calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.calendar-header h2 { margin: 0; }
+
+.calendar-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.calendar-table th {
+    background: var(--text);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-align: center;
+    padding: 10px 4px;
+}
+
+.calendar-table td {
+    vertical-align: top;
+    height: 78px;
+    padding: 6px;
+    border: 1px solid var(--border);
+}
+
+.calendar-cell-out { opacity: 0.4; }
+.calendar-cell-today { background: #eef2ff; }
+
+.calendar-date {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+.calendar-cell-out .calendar-date { font-weight: 400; color: var(--muted); }
+
+.calendar-badge {
+    display: block;
+    margin: 0 0 3px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.badge.session-open { background: #dcfce7; color: var(--success); }
+.badge.session-closed { background: #e5e7eb; color: var(--muted); }
+
+.calendar-legend {
+    margin-top: 12px;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .round-block {
     margin-bottom: 18px;
 }

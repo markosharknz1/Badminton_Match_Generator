@@ -131,16 +131,33 @@ async function checkSessionState() {
     }
 }
 
+// After closing, show the night's cash-up totals so whoever's finishing up
+// can reconcile the cash box before leaving - without a trip to History to
+// run a date-range export just to see tonight's numbers. Non-fatal if this
+// part fails (session is already closed either way).
+async function showFinishedSessionSummary(sessionId) {
+    try {
+        const summary = await api(`/api/sessions/${sessionId}/payment-summary`);
+        const body = summary.payment_breakdown.length
+            ? summary.payment_breakdown.map((p) => `${p.category}: $${(p.amount_cents / 100).toFixed(2)}`).join('\n')
+                + `\n\nTotal funds: $${(summary.total_funds_cents / 100).toFixed(2)}`
+            : 'No payments recorded.';
+        alert(`Session finished - ${summary.session.label || 'Session'} (${summary.session.date})\n\n${body}`);
+    } catch (err) { /* non-fatal */ }
+}
+
 $('#finish-session-btn').addEventListener('click', async () => {
     if (!openSession) return;
     if (!confirm(`Finish today's session (${openSession.label || 'Session'} - ${openSession.date})? This closes check-in and rounds for the day - you can start a new session afterwards.`)) return;
     try {
-        await api(`/api/sessions/${openSession.id}`, {
+        const sessionId = openSession.id;
+        await api(`/api/sessions/${sessionId}`, {
             method: 'PUT',
             body: JSON.stringify({ status: 'closed' }),
         });
         showError('');
         await checkSessionState();
+        await showFinishedSessionSummary(sessionId);
     } catch (err) {
         showError(err.message);
     }
@@ -173,6 +190,7 @@ function handleServerEvent(msg) {
     if (!msg.type) return;
     if (msg.type === 'session') {
         checkSessionState().catch((err) => showError(err.message));
+        mountTonightSummary($('#tonight-summary'));
         return;
     }
     if (!openSession) return;
@@ -185,6 +203,7 @@ function handleServerEvent(msg) {
         loadAttendancePool()
             .then(() => renderBuilder())
             .catch((err) => showError(err.message));
+        mountTonightSummary($('#tonight-summary'));
     } else if (msg.type === 'auto_generate_failed' && msg.session_id === openSession.id) {
         showError(msg.message);
     } else if (msg.type === 'scheduler_error' && msg.session_id === openSession.id) {
@@ -201,6 +220,7 @@ async function init() {
         // non-fatal
     }
     await checkSessionState();
+    mountTonightSummary($('#tonight-summary'));
     subscribeToEvents(handleServerEvent);
 }
 

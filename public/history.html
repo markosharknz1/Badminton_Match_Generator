@@ -43,22 +43,32 @@
         </div>
 
         <div class="panel">
+            <h2>Tonight's totals</h2>
+            <div id="tonight-summary"><p class="muted">Loading...</p></div>
+        </div>
+
+        <div class="panel">
             <h2>Export session trend</h2>
-            <p class="muted">Download one row per session as a real Excel file - headcount, peak concurrent on-site, rounds, and membership breakdown - to chart growth over time. Uses the same date range set above (leave blank for all sessions).</p>
+            <p class="muted">Download one row per session as a real Excel file - headcount, rounds, membership breakdown, grade/gender/age of who played, and the full payment-category breakdown - to chart growth over time or reconcile funds. Uses the date range set above (leave blank for all sessions). For just the most recent night's numbers, see Tonight's totals above instead.</p>
             <div class="filter-bar">
-                <button id="report-preview">Preview</button>
                 <button class="primary" id="report-download">Download .xlsx</button>
             </div>
-            <div id="report-preview-wrap" style="display:none; overflow-x:auto;">
-                <table class="history-table" id="report-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th><th>Session</th><th class="num">Unique</th><th class="num">Peak on-site</th>
-                            <th class="num">Rounds</th><th class="num">Active</th><th class="num">Lapsed</th><th class="num">Guests</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
+        </div>
+
+        <div class="panel">
+            <div class="calendar-header">
+                <button id="calendar-prev" class="small">&lsaquo; Prev</button>
+                <h2 id="calendar-title"></h2>
+                <button id="calendar-next" class="small">Next &rsaquo;</button>
+            </div>
+            <table class="calendar-table">
+                <thead id="calendar-thead"></thead>
+                <tbody id="calendar-tbody"></tbody>
+            </table>
+            <div class="calendar-legend">
+                <span class="badge session-open">&#9679;</span> Open session
+                <span class="badge session-closed">&#9679;</span> Closed session
+                <span class="muted">- badge shows session name and players checked in; click to open</span>
             </div>
         </div>
 
@@ -106,6 +116,7 @@
 
 <script src="/events.js"></script>
 <script src="/branding.js"></script>
+<script src="/tonightSummary.js"></script>
 <script src="/history.js"></script>
 <script src="/pwa.js"></script>
 </body>

@@ -34,27 +34,105 @@ function showView(which) {
 }
 
 // --- Session list ---
+let allSessions = [];
+
 async function loadSessions() {
-    const sessions = await api('/api/history/sessions');
+    allSessions = await api('/api/history/sessions');
     const tbody = $('#sessions-table tbody');
-    if (sessions.length === 0) {
+    if (allSessions.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="muted">No sessions yet.</td></tr>';
-        return;
+    } else {
+        tbody.innerHTML = allSessions.map((s) => `
+            <tr data-session-id="${s.id}">
+                <td>${esc(s.date)}</td>
+                <td>${esc(s.label || 'Session')} ${s.status === 'open' ? '<span class="badge">open</span>' : ''}</td>
+                <td>${esc(s.mode)}</td>
+                <td class="num">${s.players_checked_in}</td>
+                <td class="num">${s.rounds_played}</td>
+                <td class="num">${s.games_played}</td>
+            </tr>
+        `).join('');
+        tbody.querySelectorAll('tr[data-session-id]').forEach((tr) => {
+            tr.addEventListener('click', () => openSession(Number(tr.dataset.sessionId)));
+        });
     }
-    tbody.innerHTML = sessions.map((s) => `
-        <tr data-session-id="${s.id}">
-            <td>${esc(s.date)}</td>
-            <td>${esc(s.label || 'Session')} ${s.status === 'open' ? '<span class="badge">open</span>' : ''}</td>
-            <td>${esc(s.mode)}</td>
-            <td class="num">${s.players_checked_in}</td>
-            <td class="num">${s.rounds_played}</td>
-            <td class="num">${s.games_played}</td>
-        </tr>
+    renderCalendar();
+}
+
+// --- Calendar (ported from the club's other admin app, Club Training) ---
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const today = new Date();
+let calYear = today.getFullYear();
+let calMonth = today.getMonth() + 1; // 1-12
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function dateKey(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function mondayIndex(jsDay) { return (jsDay + 6) % 7; } // getDay(): 0=Sun..6=Sat -> Mon-first 0..6
+
+// Weeks of date objects covering the given month, padded with adjacent-month
+// days so every week is a full 7 days (Mon-first, matching Club Training's
+// calendar.monthdatescalendar()).
+function buildCalendarWeeks(year, month) {
+    const first = new Date(year, month - 1, 1);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const startOffset = mondayIndex(first.getDay());
+    const cells = [];
+    for (let i = startOffset; i > 0; i--) cells.push(new Date(year, month - 1, 1 - i));
+    for (let day = 1; day <= daysInMonth; day++) cells.push(new Date(year, month - 1, day));
+    while (cells.length % 7 !== 0) {
+        const last = cells[cells.length - 1];
+        cells.push(new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1));
+    }
+    const weeks = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    return weeks;
+}
+
+function renderCalendar() {
+    const byDate = new Map();
+    for (const s of allSessions) {
+        if (!byDate.has(s.date)) byDate.set(s.date, []);
+        byDate.get(s.date).push(s);
+    }
+
+    $('#calendar-title').textContent = `${MONTH_NAMES[calMonth - 1]} ${calYear}`;
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    $('#calendar-thead').innerHTML = `<tr>${dayNames.map((d) => `<th>${d}</th>`).join('')}</tr>`;
+
+    const todayKey = dateKey(today);
+    const weeks = buildCalendarWeeks(calYear, calMonth);
+    $('#calendar-tbody').innerHTML = weeks.map((week) => `
+        <tr>${week.map((d) => {
+            const key = dateKey(d);
+            const inMonth = d.getMonth() === calMonth - 1;
+            const cellClasses = ['calendar-cell', !inMonth && 'calendar-cell-out', key === todayKey && 'calendar-cell-today'].filter(Boolean).join(' ');
+            const sessions = byDate.get(key) || [];
+            const badges = sessions.map((s) => `
+                <a href="#" class="badge calendar-badge session-${s.status}" data-session-id="${s.id}" title="${esc(s.label || 'Session')} - ${s.players_checked_in} player${s.players_checked_in === 1 ? '' : 's'}">${esc(s.label || 'Session')} - ${s.players_checked_in}</a>
+            `).join('');
+            return `<td class="${cellClasses}"><div class="calendar-date">${d.getDate()}</div>${badges}</td>`;
+        }).join('')}</tr>
     `).join('');
-    tbody.querySelectorAll('tr[data-session-id]').forEach((tr) => {
-        tr.addEventListener('click', () => openSession(Number(tr.dataset.sessionId)));
+
+    $('#calendar-tbody').querySelectorAll('.calendar-badge').forEach((el) => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            openSession(Number(el.dataset.sessionId));
+        });
     });
 }
+
+$('#calendar-prev').addEventListener('click', () => {
+    calMonth--;
+    if (calMonth < 1) { calMonth = 12; calYear--; }
+    renderCalendar();
+});
+
+$('#calendar-next').addEventListener('click', () => {
+    calMonth++;
+    if (calMonth > 12) { calMonth = 1; calYear++; }
+    renderCalendar();
+});
 
 // --- One session's rounds ---
 async function openSession(sessionId) {
@@ -169,33 +247,6 @@ function reportRangeQs() {
     return params.toString() ? `?${params.toString()}` : '';
 }
 
-$('#report-preview').addEventListener('click', async () => {
-    try {
-        const data = await api(`/api/export/report${reportRangeQs()}`);
-        const tbody = $('#report-table tbody');
-        $('#report-preview-wrap').style.display = 'block';
-        if (data.rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="muted">No sessions in this range.</td></tr>';
-            return;
-        }
-        tbody.innerHTML = data.rows.map((r) => `
-            <tr>
-                <td>${esc(r.date)}</td>
-                <td>${esc(r.label || 'Session')}</td>
-                <td class="num">${r.unique_players}</td>
-                <td class="num">${r.peak_concurrent}</td>
-                <td class="num">${r.rounds_played}</td>
-                <td class="num">${r.active_members}</td>
-                <td class="num">${r.lapsed_members}</td>
-                <td class="num">${r.guests}</td>
-            </tr>
-        `).join('');
-        showError('');
-    } catch (err) {
-        showError(err.message);
-    }
-});
-
 $('#report-download').addEventListener('click', () => {
     // Direct navigation so the browser handles the file download with the
     // server-set filename; no fetch/blob juggling needed.
@@ -214,10 +265,14 @@ async function init() {
     } catch (err) {
         showError(err.message);
     }
+    mountTonightSummary($('#tonight-summary'));
     // Live-refresh the session list as games complete in other tabs.
     subscribeToEvents((msg) => {
         if ($('#landing-view').style.display !== 'none' && (msg.type === 'game' || msg.type === 'session')) {
             loadSessions().catch(() => {});
+        }
+        if (msg.type === 'session' || msg.type === 'attendance') {
+            mountTonightSummary($('#tonight-summary'));
         }
     });
 }

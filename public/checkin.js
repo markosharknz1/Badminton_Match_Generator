@@ -66,10 +66,12 @@ function handleServerEvent(msg) {
         // tab - simplest correct response is to just re-derive which mode
         // this screen should be in and re-render from fresh server state.
         checkSessionState().catch((err) => showError(err.message));
+        mountTonightSummary($('#tonight-summary'));
     } else if (msg.type === 'attendance') {
         if (openSession && msg.session_id === openSession.id) {
             refreshAttendance().catch((err) => showError(err.message));
         }
+        mountTonightSummary($('#tonight-summary'));
     } else if (msg.type === 'players') {
         loadAllPlayers().then(renderAvailableTable).catch((err) => showError(err.message));
     } else if (msg.type === 'auto_generate_failed' && openSession && msg.session_id === openSession.id) {
@@ -94,6 +96,7 @@ async function init() {
         : 'Double-click a player to remove them from today.';
 
     await checkSessionState();
+    mountTonightSummary($('#tonight-summary'));
     subscribeToEvents(handleServerEvent);
 }
 
@@ -787,16 +790,33 @@ $('#np-submit').addEventListener('click', async () => {
 
 $('#player-search').addEventListener('input', renderAvailableTable);
 
+// After closing, show the night's cash-up totals so whoever's finishing up
+// can reconcile the cash box before leaving - without a trip to History to
+// run a date-range export just to see tonight's numbers. Non-fatal if this
+// part fails (session is already closed either way).
+async function showFinishedSessionSummary(sessionId) {
+    try {
+        const summary = await api(`/api/sessions/${sessionId}/payment-summary`);
+        const body = summary.payment_breakdown.length
+            ? summary.payment_breakdown.map((p) => `${p.category}: $${(p.amount_cents / 100).toFixed(2)}`).join('\n')
+                + `\n\nTotal funds: $${(summary.total_funds_cents / 100).toFixed(2)}`
+            : 'No payments recorded.';
+        alert(`Session finished - ${summary.session.label || 'Session'} (${summary.session.date})\n\n${body}`);
+    } catch (err) { /* non-fatal */ }
+}
+
 $('#finish-session-btn').addEventListener('click', async () => {
     if (!openSession) return;
     if (!confirm(`Finish today's session (${openSession.label || 'Session'} - ${openSession.date})? This closes check-in and rounds for the day - you can start a new session afterwards.`)) return;
     try {
-        await api(`/api/sessions/${openSession.id}`, {
+        const sessionId = openSession.id;
+        await api(`/api/sessions/${sessionId}`, {
             method: 'PUT',
             body: JSON.stringify({ status: 'closed' }),
         });
         showError('');
         await checkSessionState();
+        await showFinishedSessionSummary(sessionId);
     } catch (err) {
         showError(err.message);
     }

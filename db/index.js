@@ -93,6 +93,30 @@ function ensureAdhocPaymentCategories(db) {
     }
 }
 
+// A session left 'open' overnight (staff forgot "Finish session", or the
+// computer was just switched off without it) would otherwise block every
+// future session forever - only one 'open' session is ever allowed at a
+// time (see routes/sessions.js), so the next club night's "Start session"
+// hits a 409 until someone manually finishes yesterday's. The app has no
+// way to run code exactly at midnight while the computer is off, so instead
+// this runs on every boot (same idiom as ensureBaselineDefaults) and closes
+// any 'open' session whose date isn't today's UTC date - by the time the
+// app is opened again, "today" has moved on regardless of exactly when
+// the computer was shut down. Mirrors exactly what the manual "Finish
+// session" button does (status -> 'closed', nothing else) - a session
+// closed this way still shows in History with whatever games/attendance it
+// had at closing time. The live scheduler (lib/scheduler.js) does the same
+// check on a timer for the rarer case where the computer is left on
+// through midnight instead of shut down.
+function closeStaleOpenSessions(db) {
+    const today = new Date().toISOString().slice(0, 10);
+    const stale = all(db, `SELECT id FROM sessions WHERE status = 'open' AND date < ?`, [today]);
+    for (const { id } of stale) {
+        db.run(`UPDATE sessions SET status = 'closed' WHERE id = ?`, [id]);
+    }
+    return stale.length;
+}
+
 // Adds columns introduced after a database was first created, since
 // `CREATE TABLE IF NOT EXISTS` in schema.sql only affects brand-new tables -
 // it never retrofits an existing one. Additive-only and idempotent (checks
@@ -193,6 +217,6 @@ function get(db, sql, params = []) {
 
 module.exports = {
     DB_PATH, SCHEMA_PATH, BACKUP_DIR, openDb, applySchema, saveDb, all, get,
-    ensureBaselineDefaults, ensureColumns, ensureAdhocPaymentCategories, backupToDocuments, listBackups,
+    ensureBaselineDefaults, ensureColumns, ensureAdhocPaymentCategories, closeStaleOpenSessions, backupToDocuments, listBackups,
     ADHOC_PAYMENT_CATEGORY_NAMES,
 };

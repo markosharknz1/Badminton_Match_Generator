@@ -2,6 +2,7 @@ const express = require('express');
 const store = require('../db/store');
 const { broadcast } = require('../lib/eventBus');
 const { ADHOC_PAYMENT_CATEGORY_NAMES } = require('../db/index');
+const { paymentBreakdown, uniquePlayerCount } = require('../lib/sessionReport');
 
 const router = express.Router();
 
@@ -30,11 +31,34 @@ router.get('/', (req, res) => {
     res.json(store.query(sql, params));
 });
 
-// Must come before /:id so "open" isn't captured as an id param.
+// Must come before /:id so "open"/"latest" aren't captured as an id param.
 router.get('/open', (req, res) => {
     const session = store.queryOne(`SELECT * FROM sessions WHERE status = 'open' LIMIT 1`);
     if (!session) return res.status(404).json({ error: 'No open session' });
     res.json(session);
+});
+
+// Whichever session "tonight" means for a quick summary: the one currently
+// open, or - once it's been finished - the most recently closed one, so a
+// tonight's-totals view stays useful to check after "Finish session" too,
+// not only while a session is still running.
+router.get('/latest', (req, res) => {
+    const open = store.queryOne(`SELECT * FROM sessions WHERE status = 'open' LIMIT 1`);
+    if (open) return res.json(open);
+    const lastClosed = store.queryOne(`SELECT * FROM sessions ORDER BY date DESC, id DESC LIMIT 1`);
+    if (!lastClosed) return res.status(404).json({ error: 'No sessions yet' });
+    res.json(lastClosed);
+});
+
+// Cash-up totals for one session - shown right after "Finish session" and
+// on a tonight-only summary elsewhere, so whoever's closing up can
+// reconcile players/payments without going to History and running a
+// date-range export just to see tonight's numbers.
+router.get('/:id/payment-summary', (req, res) => {
+    const session = store.queryOne(`SELECT id, date, label FROM sessions WHERE id = ?`, [req.params.id]);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const db = store.getDb();
+    res.json({ session, unique_players: uniquePlayerCount(db, session.id), ...paymentBreakdown(db, session.id) });
 });
 
 // The "same as usual" / "need to change something" start flow. Only one open
