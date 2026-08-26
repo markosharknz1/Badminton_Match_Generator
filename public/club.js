@@ -45,6 +45,14 @@ function esc(s) {
     return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+// Whole-dollar prices are the common case - showing "10.00" everywhere
+// reads as noise when it's almost always a round number. Cents still show
+// when a club actually uses them (e.g. "9.50").
+function dollarsDisplay(cents) {
+    const dollars = (cents ?? 0) / 100;
+    return Number.isInteger(dollars) ? String(dollars) : dollars.toFixed(2);
+}
+
 // --- Section switcher ---
 function showSettingsSection(name) {
     document.querySelectorAll('[data-section]').forEach((el) => {
@@ -320,9 +328,27 @@ async function saveCategoryRow(id, tr) {
 
 async function deleteCategoryRow(id) {
     const c = paymentCategories.find((x) => x.id === id);
-    if (!confirm(`Delete payment category "${c.name}"? Only works if it isn't used by a template, session, or attendance record yet - set it to inactive instead if it's already in use.`)) return;
+    if (!confirm(`Delete payment category "${c.name}"? Only works if it isn't used by a template, session, or attendance record yet - it'll offer to mark it inactive instead if it's already in use.`)) return;
     try {
         await api(`/api/payment-categories/${id}`, { method: 'DELETE' });
+        showError('');
+        await loadPaymentCategories();
+        await loadTemplates();
+        return;
+    } catch (err) {
+        // Already in use somewhere (a template's prices, a past session, an
+        // attendance record) - deleting would break that history, but the
+        // club still doesn't want to see it going forward, so offer the
+        // fallback the error itself describes instead of leaving the user
+        // to go find the Active checkbox on their own.
+        if (!err.message.includes('Set it to inactive instead')) {
+            showError(err.message);
+            return;
+        }
+    }
+    if (!confirm(`"${c.name}" is already in use, so it can't be deleted. Mark it inactive instead? It'll stop showing up as a choice anywhere new, but past records keep the name.`)) return;
+    try {
+        await api(`/api/payment-categories/${id}`, { method: 'PUT', body: JSON.stringify({ is_active: false }) });
         showError('');
         await loadPaymentCategories();
         await loadTemplates();
@@ -407,9 +433,9 @@ function templateEditHtml(t, idx) {
             </div>
             <div class="field">
                 <label>Normal courts</label>
-                <div class="court-checks">
+                <div class="court-roster tpl-court-roster">
                     ${activeCourts.map((c) => `
-                        <label><input type="checkbox" data-court-id="${c.id}" ${isNew || templateCourtIds.has(c.id) ? 'checked' : ''}> Court ${c.court_number}</label>
+                        <div class="court-cell tpl-court-cell ${isNew || templateCourtIds.has(c.id) ? 'active' : ''}" data-court-id="${c.id}">Court ${c.court_number}</div>
                     `).join('')}
                 </div>
             </div>
@@ -419,7 +445,7 @@ function templateEditHtml(t, idx) {
                     ${activeCategories.length ? activeCategories.map((c) => `
                         <div class="field" style="min-width:130px;">
                             <label class="muted" style="font-size:0.75rem;">${esc(c.name)}</label>
-                            <input type="number" min="0" step="0.01" data-rate-category-id="${c.id}" value="${((rateByCategory.get(c.id) ?? 0) / 100).toFixed(2)}">
+                            <input type="number" min="0" step="0.01" data-rate-category-id="${c.id}" value="${dollarsDisplay(rateByCategory.get(c.id))}">
                         </div>
                     `).join('') : '<p class="muted">No payment categories yet - add some above.</p>'}
                 </div>
@@ -439,7 +465,7 @@ function templateReadonlyHtml(t, idx) {
     const activeCategories = paymentCategories.filter((c) => c.is_active);
     const rateByCategory = new Map((t.payment_rates || []).map((r) => [r.payment_category_id, r.amount_cents]));
     const priceSummary = activeCategories.length
-        ? activeCategories.map((c) => `${esc(c.name)} $${((rateByCategory.get(c.id) ?? 0) / 100).toFixed(2)}`).join(', ')
+        ? activeCategories.map((c) => `${esc(c.name)} $${dollarsDisplay(rateByCategory.get(c.id))}`).join(', ')
         : 'no payment categories configured';
     const modeLabel = t.default_mode === 'auto' ? 'Auto' : t.default_mode === 'social' ? 'Social' : 'Manual';
     return `
@@ -463,6 +489,9 @@ function renderTemplates() {
         const editing = isNew || t.id === editingTemplateKey;
         return editing ? templateEditHtml(t, idx) : templateReadonlyHtml(t, idx);
     }).join('');
+    document.querySelectorAll('.tpl-court-cell').forEach((cell) => {
+        cell.addEventListener('click', () => cell.classList.toggle('active'));
+    });
     document.querySelectorAll('#template-list button[data-action]').forEach((btn) => {
         const idx = Number(btn.dataset.idx);
         btn.addEventListener('click', () => {
@@ -496,7 +525,7 @@ function readTemplateCard(idx) {
         default_max_capacity: capacity === '' ? null : Number(capacity),
         default_game_minutes: gameMinutes === '' ? null : Number(gameMinutes),
         default_break_minutes: breakMinutes === '' ? null : Number(breakMinutes),
-        court_ids: Array.from(card.querySelectorAll('input[data-court-id]:checked')).map((i) => Number(i.dataset.courtId)),
+        court_ids: Array.from(card.querySelectorAll('.tpl-court-cell.active')).map((i) => Number(i.dataset.courtId)),
         payment_rates,
     };
 }

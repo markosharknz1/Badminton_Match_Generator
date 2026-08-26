@@ -266,14 +266,10 @@ async function init() {
     } catch (err) {
         showError(err.message);
     }
-    mountTonightSummary($('#tonight-summary'));
     // Live-refresh the session list as games complete in other tabs.
     subscribeToEvents((msg) => {
         if ($('#landing-view').style.display !== 'none' && (msg.type === 'game' || msg.type === 'session')) {
             loadSessions().catch(() => {});
-        }
-        if (msg.type === 'session' || msg.type === 'attendance') {
-            mountTonightSummary($('#tonight-summary'));
         }
     });
 }

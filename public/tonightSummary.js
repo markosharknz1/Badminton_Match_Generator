@@ -20,15 +20,21 @@ function tonightSummaryEsc(s) {
 // a Total ($) column, and one totals row at the end.
 const TONIGHT_METHODS = ['Cash', 'Card', 'Voucher'];
 
-function tonightSummaryHtml(data) {
+// title is optional - pass one (e.g. "Tonight's totals") to put a heading
+// and the player-count headline on one compact line, for a panel that has
+// no heading of its own yet. Omit it where the surrounding page already
+// has its own heading (History's per-session detail view already shows
+// the session name/date in its own <h2> right above this).
+function tonightSummaryHtml(data, title) {
     if (!data) return '<p class="muted">No sessions yet.</p>';
     const categories = data.payment_breakdown;
-    const headline = `
-        <div class="tonight-headline">
-            <strong>${data.unique_players}</strong> player${data.unique_players === 1 ? '' : 's'}
-            <span class="muted"> - ${tonightSummaryEsc(data.session.label || 'Session')} (${tonightSummaryEsc(data.session.date)})</span>
-        </div>
+    const headlineText = `
+        <strong>${data.unique_players}</strong> player${data.unique_players === 1 ? '' : 's'}
+        <span class="muted"> - ${tonightSummaryEsc(data.session.label || 'Session')} (${tonightSummaryEsc(data.session.date)})</span>
     `;
+    const headline = title
+        ? `<div class="tonight-headline tonight-title-row"><h2>${tonightSummaryEsc(title)}</h2><span>${headlineText}</span></div>`
+        : `<div class="tonight-headline">${headlineText}</div>`;
     if (!categories.length) return `${headline}<p class="muted">No payments recorded yet.</p>`;
 
     const methodEntry = (c, method) => (c.methods || []).find((m) => m.method === method);
@@ -61,12 +67,12 @@ function tonightSummaryHtml(data) {
     `;
 }
 
-// sessionId is optional - omit it for "whichever session counts as
-// tonight" (Check-in/Rounds/History's landing view), or pass a specific
-// session's id to show that session's own breakdown instead (History's
-// per-session detail view, so a past night's Member/Non-Member/etc.
-// numbers are just as easy to pull up as tonight's).
-async function mountTonightSummary(containerEl, sessionId) {
+// sessionId is optional - omit it (pass null) for "whichever session counts
+// as tonight" (Check-in's landing view), or pass a specific session's id to
+// show that session's own breakdown instead (History's per-session detail
+// view, so a past night's Member/Non-Member/etc. numbers are just as easy
+// to pull up as tonight's). title is optional - see tonightSummaryHtml.
+async function mountTonightSummary(containerEl, sessionId, title) {
     if (!containerEl) return;
     try {
         let id = sessionId;
@@ -79,7 +85,7 @@ async function mountTonightSummary(containerEl, sessionId) {
             id = (await latestRes.json()).id;
         }
         const res = await fetch(`/api/sessions/${id}/payment-summary`);
-        containerEl.innerHTML = tonightSummaryHtml(res.ok ? await res.json() : null);
+        containerEl.innerHTML = tonightSummaryHtml(res.ok ? await res.json() : null, title);
     } catch (err) {
         containerEl.innerHTML = '<p class="muted">Could not load totals.</p>';
     }

@@ -66,12 +66,12 @@ function handleServerEvent(msg) {
         // tab - simplest correct response is to just re-derive which mode
         // this screen should be in and re-render from fresh server state.
         checkSessionState().catch((err) => showError(err.message));
-        mountTonightSummary($('#tonight-summary'));
+        mountTonightSummary($('#tonight-summary'), null, "Tonight's totals");
     } else if (msg.type === 'attendance') {
         if (openSession && msg.session_id === openSession.id) {
             refreshAttendance().catch((err) => showError(err.message));
         }
-        mountTonightSummary($('#tonight-summary'));
+        mountTonightSummary($('#tonight-summary'), null, "Tonight's totals");
     } else if (msg.type === 'players') {
         loadAllPlayers().then(renderAvailableTable).catch((err) => showError(err.message));
     } else if (msg.type === 'auto_generate_failed' && openSession && msg.session_id === openSession.id) {
@@ -96,7 +96,7 @@ async function init() {
         : 'Double-click a player to remove them from today.';
 
     await checkSessionState();
-    mountTonightSummary($('#tonight-summary'));
+    mountTonightSummary($('#tonight-summary'), null, "Tonight's totals");
     subscribeToEvents(handleServerEvent);
 }
 
@@ -469,6 +469,7 @@ function openCheckinModal(playerId) {
             + sessionPaymentRates.map((r) => `<option value="${r.payment_category_id}" data-cents="${r.amount_cents}">${esc(r.name)}${r.amount_cents > 0 ? ` - ${formatCents(r.amount_cents)}` : ''}</option>`).join('');
         $('#cm-amount').value = '';
         $('#cm-method').value = '';
+        $('#cm-method-field').style.display = '';
         $('#cm-note').value = '';
         $('#cm-hint').style.display = 'none';
     } else {
@@ -572,6 +573,19 @@ $('#cm-edit-save').addEventListener('click', async () => {
     }
 });
 
+// A Sports Voucher redemption isn't paid via Cash/Card/Voucher at all - it
+// counts against the player's own voucher balance, tracked elsewhere, not
+// a cash transaction on the night. "Paid via" doesn't apply, so it's
+// hidden (and cleared) rather than left sitting there asking a question
+// that has no real answer for this category.
+function updateMethodFieldVisibility(categorySelectId, methodFieldId, methodSelectId) {
+    const categoryValue = $(categorySelectId).value;
+    const selectedRate = sessionPaymentRates.find((r) => String(r.payment_category_id) === categoryValue);
+    const isSportsVoucher = selectedRate?.name === 'Sports Voucher';
+    $(methodFieldId).style.display = isSportsVoucher ? 'none' : '';
+    if (isSportsVoucher) $(methodSelectId).value = '';
+}
+
 $('#cm-category').addEventListener('change', () => {
     const opt = $('#cm-category').selectedOptions[0];
     // Only auto-fill from a category with a real configured price (template
@@ -582,6 +596,7 @@ $('#cm-category').addEventListener('change', () => {
         $('#cm-amount').value = (Number(opt.dataset.cents) / 100).toFixed(2);
         updateCheckinHint();
     }
+    updateMethodFieldVisibility('#cm-category', '#cm-method-field', '#cm-method');
 });
 
 $('#cm-amount').addEventListener('input', updateCheckinHint);
@@ -699,6 +714,7 @@ function openPaymentModal(attendanceId) {
     $('#pm-note').value = a.payment_note || '';
     $('#pm-visitor-new-member').checked = !!a.first_time || !!a.new_member;
     updatePaymentHint();
+    updateMethodFieldVisibility('#pm-category', '#pm-method-field', '#pm-method');
     $('#payment-modal-backdrop').style.display = 'flex';
 }
 
@@ -718,6 +734,7 @@ $('#pm-category').addEventListener('change', () => {
         $('#pm-amount').value = (Number(opt.dataset.cents) / 100).toFixed(2);
         updatePaymentHint();
     }
+    updateMethodFieldVisibility('#pm-category', '#pm-method-field', '#pm-method');
 });
 
 $('#pm-amount').addEventListener('input', updatePaymentHint);

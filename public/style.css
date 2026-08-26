@@ -720,32 +720,45 @@ textarea {
    banner and row striping, not the muted-uppercase look the rest of
    History's tables use. Matches the table style from the club's other
    admin app (Club Training), which the club specifically likes better
-   here. Shared across Check-in, Rounds, and History. */
+   here. Compact by design (tight cell padding, heading+headline sharing
+   one line) so it doesn't push the actual check-in work below the fold on
+   a small laptop screen - this is a glance, not the main event. Shown on
+   Check-in and History's per-session detail view only. */
 .tonight-headline {
-    font-size: 1.05rem;
-    margin-bottom: 12px;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
 }
+
+.tonight-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.tonight-title-row h2 { margin: 0; }
 
 .tonight-payment-table {
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid var(--border);
+    font-size: 0.85rem;
 }
 
 .tonight-payment-table thead th {
     background: var(--text);
     color: #fff;
     font-weight: 600;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     text-transform: none;
     letter-spacing: normal;
     border-bottom: none;
-    padding: 12px 14px;
+    padding: 6px 10px;
 }
 
-.tonight-payment-table tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.tonight-payment-table tbody td { padding: 5px 10px; border-bottom: 1px solid var(--border); }
 .tonight-payment-table tbody tr:nth-child(even) { background: #f8fafc; }
-.tonight-payment-table .tonight-total-row td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; }
+.tonight-payment-table .tonight-total-row td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; padding: 6px 10px; }
 
 /* Month calendar of sessions (History page) - ported from the club's other
    admin app (Club Training), same dark-header/bordered-grid look as the

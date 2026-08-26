@@ -190,7 +190,6 @@ function handleServerEvent(msg) {
     if (!msg.type) return;
     if (msg.type === 'session') {
         checkSessionState().catch((err) => showError(err.message));
-        mountTonightSummary($('#tonight-summary'));
         return;
     }
     if (!openSession) return;
@@ -203,7 +202,6 @@ function handleServerEvent(msg) {
         loadAttendancePool()
             .then(() => renderBuilder())
             .catch((err) => showError(err.message));
-        mountTonightSummary($('#tonight-summary'));
     } else if (msg.type === 'auto_generate_failed' && msg.session_id === openSession.id) {
         showError(msg.message);
     } else if (msg.type === 'scheduler_error' && msg.session_id === openSession.id) {
@@ -220,7 +218,6 @@ async function init() {
         // non-fatal
     }
     await checkSessionState();
-    mountTonightSummary($('#tonight-summary'));
     subscribeToEvents(handleServerEvent);
 }
 
