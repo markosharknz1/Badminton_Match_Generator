@@ -1,6 +1,7 @@
 const express = require('express');
 const store = require('../db/store');
 const { broadcast } = require('../lib/eventBus');
+const { todayLocalDateStr } = require('../db/index');
 
 const router = express.Router();
 
@@ -12,9 +13,11 @@ function dayOfWeekFor(dateStr) {
     return DAYS[d.getDay()];
 }
 
-function todayDateStr() {
-    return new Date().toISOString().slice(0, 10);
-}
+// The club's own local date, not UTC - see db/index.js's
+// todayLocalDateStr for why that distinction matters (a club well ahead of
+// UTC, e.g. New Zealand, would otherwise see "today's session template"
+// still showing yesterday's for hours after local midnight).
+const todayDateStr = todayLocalDateStr;
 
 function courtsForTemplate(templateId) {
     return store.query(

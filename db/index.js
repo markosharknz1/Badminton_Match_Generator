@@ -98,6 +98,18 @@ function markLegacyAdhocCategoriesSystem(db) {
     );
 }
 
+// This app runs on the club's own computer, so the machine's system
+// timezone IS the club's local time - deliberately NOT toISOString()
+// (always UTC). A club well ahead of UTC (e.g. New Zealand, UTC+12/+13)
+// hit a real bug from that: comparing against UTC "today" meant a session
+// stayed "open" for up to ~12 hours *past* local midnight, since UTC's own
+// calendar day doesn't roll over until well into the next local day -
+// exactly the "still showing open" report that flagged this.
+function todayLocalDateStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // A session left 'open' overnight (staff forgot "Finish session", or the
 // computer was just switched off without it) would otherwise block every
 // future session forever - only one 'open' session is ever allowed at a
@@ -105,7 +117,7 @@ function markLegacyAdhocCategoriesSystem(db) {
 // hits a 409 until someone manually finishes yesterday's. The app has no
 // way to run code exactly at midnight while the computer is off, so instead
 // this runs on every boot (same idiom as ensureBaselineDefaults) and closes
-// any 'open' session whose date isn't today's UTC date - by the time the
+// any 'open' session whose date isn't today's local date - by the time the
 // app is opened again, "today" has moved on regardless of exactly when
 // the computer was shut down. Mirrors exactly what the manual "Finish
 // session" button does (status -> 'closed', nothing else) - a session
@@ -114,7 +126,7 @@ function markLegacyAdhocCategoriesSystem(db) {
 // check on a timer for the rarer case where the computer is left on
 // through midnight instead of shut down.
 function closeStaleOpenSessions(db) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocalDateStr();
     const stale = all(db, `SELECT id FROM sessions WHERE status = 'open' AND date < ?`, [today]);
     for (const { id } of stale) {
         db.run(`UPDATE sessions SET status = 'closed' WHERE id = ?`, [id]);
@@ -235,4 +247,5 @@ function get(db, sql, params = []) {
 module.exports = {
     DB_PATH, SCHEMA_PATH, BACKUP_DIR, openDb, applySchema, saveDb, all, get,
     ensureBaselineDefaults, ensureColumns, markLegacyAdhocCategoriesSystem, closeStaleOpenSessions, backupToDocuments, listBackups,
+    todayLocalDateStr,
 };
