@@ -760,8 +760,21 @@ textarea {
 }
 
 .tonight-payment-table tbody td { padding: 5px 10px; border-bottom: 1px solid var(--border); }
-.tonight-payment-table tbody tr:nth-child(even) { background: #f8fafc; }
+.tonight-payment-table .tonight-row-even { background: #f8fafc; }
 .tonight-payment-table .tonight-total-row td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; padding: 6px 10px; }
+
+/* Click-to-expand category rows - see who's actually behind a number, not
+   just the total (a category with no cash/card/voucher method of its own,
+   like Sports Voucher, otherwise shows 0 in every method column with
+   nothing to click to confirm it wasn't really empty). */
+.tonight-category-row { cursor: pointer; }
+.tonight-category-row:hover { background: #eef2ff; }
+.tonight-expand-arrow { display: inline-block; color: var(--muted); transition: transform 0.15s; }
+.tonight-category-row.expanded .tonight-expand-arrow { transform: rotate(90deg); }
+
+.tonight-detail-row td { background: #f8fafc; padding: 8px 10px 8px 24px; }
+.tonight-player-list { margin: 0; padding: 0; list-style: none; font-size: 0.82rem; }
+.tonight-player-list li { padding: 2px 0; }
 
 /* Month calendar of sessions (History page) - ported from the club's other
    admin app (Club Training), same dark-header/bordered-grid look as the

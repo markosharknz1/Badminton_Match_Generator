@@ -49,13 +49,28 @@ function tonightSummaryHtml(data, title) {
     const methodCount = (c, method) => methodEntry(c, method)?.count || 0;
     const columnTotalCents = (method) => categories.reduce((sum, c) => sum + (methodEntry(c, method)?.amount_cents || 0), 0);
 
-    const rows = categories.map((c) => `
-        <tr>
-            <td>${tonightSummaryEsc(c.category)}</td>
-            ${TONIGHT_METHODS.map((method) => `<td class="num">${methodCount(c, method)}</td>`).join('')}
-            <td class="num">$${tonightDollars(c.amount_cents)}</td>
-        </tr>
-    `).join('');
+    // Every category row is click-to-expand, revealing exactly who's behind
+    // the number - a category with no cash/card/voucher method of its own
+    // (Sports Voucher, say) would otherwise show 0 in every method column
+    // with nothing to click on to confirm it wasn't actually empty.
+    const colCount = TONIGHT_METHODS.length + 2;
+    const rows = categories.map((c, i) => {
+        const players = (c.players || []).slice().sort((a, b) => a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name));
+        const playerItems = players.length
+            ? players.map((p) => `<li>${tonightSummaryEsc(p.first_name)} ${tonightSummaryEsc(p.last_name)}${p.method ? ` <span class="muted">(${tonightSummaryEsc(p.method)})</span>` : ''} - $${tonightDollars(p.amount_cents)}</li>`).join('')
+            : '<li class="muted">No one recorded.</li>';
+        const stripe = i % 2 === 0 ? 'tonight-row-even' : 'tonight-row-odd';
+        return `
+            <tr class="tonight-category-row ${stripe}" data-row="${i}">
+                <td>${tonightSummaryEsc(c.category)} <span class="tonight-expand-arrow">&rsaquo;</span></td>
+                ${TONIGHT_METHODS.map((method) => `<td class="num">${methodCount(c, method)}</td>`).join('')}
+                <td class="num">$${tonightDollars(c.amount_cents)}</td>
+            </tr>
+            <tr class="tonight-detail-row" data-detail-for="${i}" style="display:none;">
+                <td colspan="${colCount}"><ul class="tonight-player-list">${playerItems}</ul></td>
+            </tr>
+        `;
+    }).join('');
 
     // Body rows show a headcount per method (how many paid this way); the
     // totals row switches to dollar amounts per method instead of counts -
@@ -73,6 +88,21 @@ function tonightSummaryHtml(data, title) {
             </tr></tfoot>
         </table>
     `;
+}
+
+// Wires up the click-to-expand behaviour for tonightSummaryHtml's category
+// rows - separate from the pure HTML builder above since it needs a live
+// DOM to attach listeners to.
+function wireTonightExpandRows(containerEl) {
+    containerEl.querySelectorAll('.tonight-category-row').forEach((row) => {
+        row.addEventListener('click', () => {
+            const detail = containerEl.querySelector(`.tonight-detail-row[data-detail-for="${row.dataset.row}"]`);
+            if (!detail) return;
+            const expanded = detail.style.display !== 'none';
+            detail.style.display = expanded ? 'none' : 'table-row';
+            row.classList.toggle('expanded', !expanded);
+        });
+    });
 }
 
 // sessionId is optional - omit it (pass null) for "whichever session counts
@@ -95,6 +125,7 @@ async function mountTonightSummary(containerEl, sessionId, title) {
         }
         const res = await fetch(`/api/sessions/${id}/payment-summary`);
         containerEl.innerHTML = tonightSummaryHtml(res.ok ? await res.json() : null, title);
+        wireTonightExpandRows(containerEl);
     } catch (err) {
         containerEl.innerHTML = '<p class="muted">Could not load totals.</p>';
     }
