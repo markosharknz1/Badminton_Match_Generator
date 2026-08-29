@@ -2,7 +2,7 @@
 // Every mutating call persists to disk immediately (persist()) - this is a
 // single-writer local app, not a high-throughput server, so simplicity and
 // durability win over batching writes.
-const { openDb, applySchema, saveDb, ensureBaselineDefaults, ensureColumns, markLegacyAdhocCategoriesSystem, backfillSportsVoucherMethod, closeStaleOpenSessions, backupToDocuments, all, get } = require('./index');
+const { openDb, applySchema, saveDb, ensureBaselineDefaults, ensureColumns, markLegacyAdhocCategoriesSystem, backfillSportsVoucherMethod, zeroVoucherAmounts, closeStaleOpenSessions, backupToDocuments, all, get } = require('./index');
 
 let db = null;
 
@@ -13,6 +13,7 @@ async function init() {
     ensureColumns(db); // retrofits columns added after this DB was first created
     markLegacyAdhocCategoriesSystem(db); // hide the old Cash/Card/Voucher categories from Settings, keep history intact
     backfillSportsVoucherMethod(db); // any Sports Voucher payment saved before this was tracked
+    zeroVoucherAmounts(db); // a voucher redemption is never new money taken - zero any stale nonzero amount
     closeStaleOpenSessions(db); // yesterday's session left open overnight doesn't block tonight's
     saveDb(db);
     backupToDocuments(); // one safety-net copy per launch to Documents\GameScheduler\backups

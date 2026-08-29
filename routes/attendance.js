@@ -76,6 +76,13 @@ router.put('/attendance/:id', (req, res) => {
     if (merged.payment_method !== null && merged.payment_method !== undefined && !PAYMENT_METHODS.includes(merged.payment_method)) {
         return res.status(400).json({ error: `payment_method must be one of ${PAYMENT_METHODS.join(', ')}` });
     }
+    // A voucher was already paid for when it was bought/allocated - checking
+    // someone in against one still counts them and their category, but is
+    // never new money taken that night. Enforced here (not just the check-in
+    // UI resetting the field) so it holds regardless of caller.
+    if (merged.payment_method === 'Voucher') {
+        merged.payment_amount_cents = 0;
+    }
     try {
         store.run(
             `UPDATE attendance SET state=?, left_reason=?, payment_category_id=?, payment_amount_cents=?, payment_method=?, payment_note=?, first_time=?, new_member=?

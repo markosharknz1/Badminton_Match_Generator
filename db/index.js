@@ -114,6 +114,23 @@ function backfillSportsVoucherMethod(db) {
     );
 }
 
+// A voucher was already paid for when it was bought/allocated - redeeming
+// one checks the player in and counts toward headcounts, but is never new
+// money taken on the night, so it must never inflate Tonight's totals or
+// any session's "total funds" figure. routes/attendance.js now enforces
+// this going forward (payment_method='Voucher' always forces amount to 0),
+// but rows saved before that existed (any category, not just Sports
+// Voucher - a regular category paid "via voucher" too) still carry a real
+// dollar amount. Zeroing them here keeps every derived total (per-category,
+// per-method, grand total) correct without special-casing voucher anywhere
+// in the reporting/aggregation code - the underlying data is just correct.
+function zeroVoucherAmounts(db) {
+    db.run(
+        `UPDATE attendance SET payment_amount_cents = 0
+         WHERE payment_method = 'Voucher' AND payment_amount_cents != 0`
+    );
+}
+
 // This app runs on the club's own computer, so the machine's system
 // timezone IS the club's local time - deliberately NOT toISOString()
 // (always UTC). A club well ahead of UTC (e.g. New Zealand, UTC+12/+13)
@@ -266,6 +283,6 @@ function get(db, sql, params = []) {
 
 module.exports = {
     DB_PATH, SCHEMA_PATH, BACKUP_DIR, openDb, applySchema, saveDb, all, get,
-    ensureBaselineDefaults, ensureColumns, markLegacyAdhocCategoriesSystem, backfillSportsVoucherMethod, closeStaleOpenSessions, backupToDocuments, listBackups,
+    ensureBaselineDefaults, ensureColumns, markLegacyAdhocCategoriesSystem, backfillSportsVoucherMethod, zeroVoucherAmounts, closeStaleOpenSessions, backupToDocuments, listBackups,
     todayLocalDateStr,
 };
