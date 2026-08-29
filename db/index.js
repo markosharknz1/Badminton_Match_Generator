@@ -98,6 +98,22 @@ function markLegacyAdhocCategoriesSystem(db) {
     );
 }
 
+// A Sports Voucher redemption is always paid via a voucher, by definition -
+// check-in now auto-fills that for every new one (see checkin.js's
+// applySportsVoucherMethodDefault), but an earlier version of this app
+// left payment_method blank for the category entirely. Backfills those
+// already-saved rows so they show up correctly in the "Paid via" columns
+// and Tonight's totals' Voucher breakdown instead of looking unrecorded.
+// Only touches rows that are still blank, so it never overwrites a
+// method someone genuinely recorded differently.
+function backfillSportsVoucherMethod(db) {
+    db.run(
+        `UPDATE attendance SET payment_method = 'Voucher'
+         WHERE payment_method IS NULL
+           AND payment_category_id IN (SELECT id FROM payment_categories WHERE name = 'Sports Voucher')`
+    );
+}
+
 // This app runs on the club's own computer, so the machine's system
 // timezone IS the club's local time - deliberately NOT toISOString()
 // (always UTC). A club well ahead of UTC (e.g. New Zealand, UTC+12/+13)
@@ -250,6 +266,6 @@ function get(db, sql, params = []) {
 
 module.exports = {
     DB_PATH, SCHEMA_PATH, BACKUP_DIR, openDb, applySchema, saveDb, all, get,
-    ensureBaselineDefaults, ensureColumns, markLegacyAdhocCategoriesSystem, closeStaleOpenSessions, backupToDocuments, listBackups,
+    ensureBaselineDefaults, ensureColumns, markLegacyAdhocCategoriesSystem, backfillSportsVoucherMethod, closeStaleOpenSessions, backupToDocuments, listBackups,
     todayLocalDateStr,
 };

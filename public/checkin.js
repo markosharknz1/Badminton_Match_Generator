@@ -608,17 +608,17 @@ $('#cm-edit-save').addEventListener('click', async () => {
     }
 });
 
-// A Sports Voucher redemption isn't paid via Cash/Card/Voucher at all - it
-// counts against the player's own voucher balance, tracked elsewhere, not
-// a cash transaction on the night. "Paid via" doesn't apply, so it's
-// hidden (and cleared) rather than left sitting there asking a question
-// that has no real answer for this category.
-function updateMethodFieldVisibility(categorySelectId, methodFieldId, methodSelectId) {
+// A Sports Voucher redemption is always paid via a voucher, by definition -
+// auto-select it so staff isn't asked to pick the one and only answer
+// every time, same idea as auto-filling Amount from the category's own
+// price. Still just a default: the field stays visible and editable in
+// case a night ever needs something different recorded.
+function applySportsVoucherMethodDefault(categorySelectId, methodSelectId) {
     const categoryValue = $(categorySelectId).value;
     const selectedRate = sessionPaymentRates.find((r) => String(r.payment_category_id) === categoryValue);
-    const isSportsVoucher = selectedRate?.name === 'Sports Voucher';
-    $(methodFieldId).style.display = isSportsVoucher ? 'none' : '';
-    if (isSportsVoucher) $(methodSelectId).value = '';
+    if (selectedRate?.name === 'Sports Voucher' && !$(methodSelectId).value) {
+        $(methodSelectId).value = 'Voucher';
+    }
 }
 
 $('#cm-category').addEventListener('change', () => {
@@ -631,7 +631,7 @@ $('#cm-category').addEventListener('change', () => {
         $('#cm-amount').value = dollarsFromCents(Number(opt.dataset.cents));
         updateCheckinHint();
     }
-    updateMethodFieldVisibility('#cm-category', '#cm-method-field', '#cm-method');
+    applySportsVoucherMethodDefault('#cm-category', '#cm-method');
 });
 
 $('#cm-amount').addEventListener('input', updateCheckinHint);
@@ -749,7 +749,7 @@ function openPaymentModal(attendanceId) {
     $('#pm-note').value = a.payment_note || '';
     $('#pm-visitor-new-member').checked = !!a.first_time || !!a.new_member;
     updatePaymentHint();
-    updateMethodFieldVisibility('#pm-category', '#pm-method-field', '#pm-method');
+    applySportsVoucherMethodDefault('#pm-category', '#pm-method');
     $('#payment-modal-backdrop').style.display = 'flex';
 }
 
@@ -769,7 +769,7 @@ $('#pm-category').addEventListener('change', () => {
         $('#pm-amount').value = dollarsFromCents(Number(opt.dataset.cents));
         updatePaymentHint();
     }
-    updateMethodFieldVisibility('#pm-category', '#pm-method-field', '#pm-method');
+    applySportsVoucherMethodDefault('#pm-category', '#pm-method');
 });
 
 $('#pm-amount').addEventListener('input', updatePaymentHint);
