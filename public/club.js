@@ -389,6 +389,14 @@ async function loadTemplates() {
 // never blocks anyone from checking in.
 const ROTATION_GUIDELINE_HELP = 'How many players this session type comfortably fits (e.g. courts × 4-6). Purely informational - shown at check-in as a hint, never blocks anyone.';
 
+// What each mode actually does at round-start time (see lib/roundLifecycle.js's
+// beginRound): Auto always generates the pairing itself, hands-off. Manual
+// never generates anything on its own - "Start round" needs a lineup staged
+// first, whether staff dragged players onto courts by hand or just clicked
+// the Rounds page's own "Auto-generate round" button as a one-off action.
+// Social skips rounds/courts entirely - check-in and payment only.
+const MODE_HELP = 'Auto: rounds are generated and started automatically, no staff action needed each round. Manual: a lineup must be staged before a round can start - build it by hand, or use the "Auto-generate round" button on the Rounds page as a one-off action; nothing starts by itself. Social: check-in and payment only, no rounds or courts at all.';
+
 function templateEditHtml(t, idx) {
     const isNew = !t.id;
     const activeCourts = courts.filter((c) => c.is_active);
@@ -418,6 +426,7 @@ function templateEditHtml(t, idx) {
                         <option value="auto" ${t.default_mode === 'auto' ? 'selected' : ''}>Auto</option>
                         <option value="social" ${t.default_mode === 'social' ? 'selected' : ''}>Social (check-in + payment only, no rounds)</option>
                     </select>
+                    <p class="muted" style="font-size:0.78rem; margin: 4px 0 0;">${MODE_HELP}</p>
                 </div>
                 <div class="field">
                     <label>Rotation guideline (optional)</label>
