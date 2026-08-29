@@ -88,7 +88,7 @@ async function mountTonightSummary(containerEl, sessionId, title) {
             const latestRes = await fetch('/api/sessions/latest');
             if (!latestRes.ok) {
                 const heading = title ? `<h2>${tonightSummaryEsc(title)}</h2>` : '';
-                containerEl.innerHTML = `${heading}<p class="muted">No session started yet today.</p>`;
+                containerEl.innerHTML = `${heading}<p class="muted">No session currently open.</p>`;
                 return;
             }
             id = (await latestRes.json()).id;

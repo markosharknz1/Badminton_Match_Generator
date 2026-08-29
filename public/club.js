@@ -3,7 +3,10 @@
 // roster management and CSV/Excel import live on the separate Members page.
 
 const GRADES = ['A', 'B', 'C', 'D', 'E'];
+// The 3-letter code is still what's stored/sent (day_of_week's schema
+// CHECK constraint) - only the label shown to staff changes.
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_LABELS = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' };
 
 let courts = []; // full courts table rows
 let matrixState = {}; // "A-B" -> bool (canonical: both directions kept equal)
@@ -395,7 +398,7 @@ const ROTATION_GUIDELINE_HELP = 'How many players this session type comfortably 
 // first, whether staff dragged players onto courts by hand or just clicked
 // the Rounds page's own "Auto-generate round" button as a one-off action.
 // Social skips rounds/courts entirely - check-in and payment only.
-const MODE_HELP = 'Auto: rounds are generated and started automatically, no staff action needed each round. Manual: a lineup must be staged before a round can start - build it by hand, or use the "Auto-generate round" button on the Rounds page as a one-off action; nothing starts by itself. Social: check-in and payment only, no rounds or courts at all.';
+const MODE_HELP = 'Auto: rounds generate and start themselves. Manual: a lineup must be staged first (by hand, or the Rounds page\'s "Auto-generate round" button). Social: check-in and payment only, no rounds.';
 
 function templateEditHtml(t, idx) {
     const isNew = !t.id;
@@ -413,7 +416,7 @@ function templateEditHtml(t, idx) {
                 <div class="field"><label>Label</label><input type="text" data-field="label" value="${esc(t.label || '')}"></div>
                 <div class="field">
                     <label>Day</label>
-                    <select data-field="day_of_week">${DAYS.map((d) => `<option value="${d}" ${t.day_of_week === d ? 'selected' : ''}>${d}</option>`).join('')}</select>
+                    <select data-field="day_of_week">${DAYS.map((d) => `<option value="${d}" ${t.day_of_week === d ? 'selected' : ''}>${DAY_LABELS[d]}</option>`).join('')}</select>
                 </div>
                 <div class="field"><label>Start</label><input type="time" data-field="start_time" value="${t.start_time || '19:30'}"></div>
                 <div class="field"><label>End</label><input type="time" data-field="end_time" value="${t.end_time || '21:30'}"></div>
@@ -490,7 +493,7 @@ function templateReadonlyHtml(t, idx) {
                     <button class="small" data-action="delete" data-idx="${idx}">Delete</button>
                 </span>
             </div>
-            <p class="muted">${t.day_of_week} ${t.start_time}-${t.end_time} &middot; ${modeLabel} mode &middot; Courts ${courtNumbers}${t.default_max_capacity ? ` &middot; guideline ${t.default_max_capacity} players` : ''}${t.default_game_minutes ? ` &middot; ${t.default_game_minutes}min games` : ''}${t.default_break_minutes ? ` &middot; ${t.default_break_minutes}min changeovers` : ''}</p>
+            <p class="muted">${DAY_LABELS[t.day_of_week] || t.day_of_week} ${t.start_time}-${t.end_time} &middot; ${modeLabel} mode &middot; Courts ${courtNumbers}${t.default_max_capacity ? ` &middot; guideline ${t.default_max_capacity} players` : ''}${t.default_game_minutes ? ` &middot; ${t.default_game_minutes}min games` : ''}${t.default_break_minutes ? ` &middot; ${t.default_break_minutes}min changeovers` : ''}</p>
             <p class="muted">Prices: ${priceSummary}</p>
         </div>
     `;

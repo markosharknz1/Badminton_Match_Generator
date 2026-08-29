@@ -167,7 +167,7 @@ button.small {
     font-size: 0.85rem;
 }
 
-input[type="text"], input[type="number"], select {
+input[type="text"], input[type="number"], input[type="time"], input[type="date"], select {
     font: inherit;
     padding: 10px 12px;
     border: 1px solid var(--border);

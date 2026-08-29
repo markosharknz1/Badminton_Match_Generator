@@ -2,7 +2,6 @@ const express = require('express');
 const store = require('../db/store');
 const { broadcast } = require('../lib/eventBus');
 const { paymentBreakdown, uniquePlayerCount } = require('../lib/sessionReport');
-const { todayLocalDateStr } = require('../db/index');
 
 const router = express.Router();
 
@@ -38,20 +37,18 @@ router.get('/open', (req, res) => {
     res.json(session);
 });
 
-// Whichever session "tonight" means for a quick summary: the one currently
-// open, or - once it's been finished - the most recently closed one, so a
-// tonight's-totals view stays useful to check after "Finish session" too,
-// not only while a session is still running. That fallback only counts if
-// the closed session is actually from today, though - otherwise a
-// club that hasn't started tonight's session yet would see the LAST
-// session's numbers (however many days old) presented as if current,
-// which is exactly the stale-data confusion this endpoint exists to avoid.
+// Whichever session "tonight" means for a quick summary: strictly the one
+// currently open - nothing shows once it's finished. An earlier version of
+// this fell back to "the most recently closed session, if from today" so
+// the totals stayed visible right after clicking "Finish session", but
+// that read as a stale/still-open session to anyone glancing at the screen
+// later (the "Session finished" alert already shows the same cash-up
+// numbers once, right when it happens - see showFinishedSessionSummary in
+// checkin.js/manage.js - so nothing is lost by not persisting it here too).
 router.get('/latest', (req, res) => {
     const open = store.queryOne(`SELECT * FROM sessions WHERE status = 'open' LIMIT 1`);
-    if (open) return res.json(open);
-    const lastClosed = store.queryOne(`SELECT * FROM sessions WHERE date = ? ORDER BY id DESC LIMIT 1`, [todayLocalDateStr()]);
-    if (!lastClosed) return res.status(404).json({ error: 'No sessions yet' });
-    res.json(lastClosed);
+    if (!open) return res.status(404).json({ error: 'No open session' });
+    res.json(open);
 });
 
 // Cash-up totals for one session - shown right after "Finish session" and
