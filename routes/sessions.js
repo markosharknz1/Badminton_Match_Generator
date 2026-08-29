@@ -2,6 +2,7 @@ const express = require('express');
 const store = require('../db/store');
 const { broadcast } = require('../lib/eventBus');
 const { paymentBreakdown, uniquePlayerCount } = require('../lib/sessionReport');
+const { todayLocalDateStr } = require('../db/index');
 
 const router = express.Router();
 
@@ -40,11 +41,15 @@ router.get('/open', (req, res) => {
 // Whichever session "tonight" means for a quick summary: the one currently
 // open, or - once it's been finished - the most recently closed one, so a
 // tonight's-totals view stays useful to check after "Finish session" too,
-// not only while a session is still running.
+// not only while a session is still running. That fallback only counts if
+// the closed session is actually from today, though - otherwise a
+// club that hasn't started tonight's session yet would see the LAST
+// session's numbers (however many days old) presented as if current,
+// which is exactly the stale-data confusion this endpoint exists to avoid.
 router.get('/latest', (req, res) => {
     const open = store.queryOne(`SELECT * FROM sessions WHERE status = 'open' LIMIT 1`);
     if (open) return res.json(open);
-    const lastClosed = store.queryOne(`SELECT * FROM sessions ORDER BY date DESC, id DESC LIMIT 1`);
+    const lastClosed = store.queryOne(`SELECT * FROM sessions WHERE date = ? ORDER BY id DESC LIMIT 1`, [todayLocalDateStr()]);
     if (!lastClosed) return res.status(404).json({ error: 'No sessions yet' });
     res.json(lastClosed);
 });
