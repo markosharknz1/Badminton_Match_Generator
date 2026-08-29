@@ -168,6 +168,11 @@ CREATE TABLE IF NOT EXISTS club_settings (
     -- Bumped on every custom icon upload (routes/branding.js), for
     -- cache-busting the favicon/header logo without a live push.
     club_icon_ver INTEGER NOT NULL DEFAULT 0,
+    -- How dates are DISPLAYED throughout the app (DMY=DD/MM/YYYY,
+    -- MDY=MM/DD/YYYY, YMD=YYYY-MM-DD) - purely cosmetic, every date is
+    -- still stored/sent over the API as plain YYYY-MM-DD regardless. Native
+    -- <input type="date"> pickers are a browser/OS thing this can't touch.
+    date_format TEXT NOT NULL DEFAULT 'YMD' CHECK (date_format IN ('DMY','MDY','YMD')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

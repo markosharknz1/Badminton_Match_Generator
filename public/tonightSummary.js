@@ -38,7 +38,7 @@ function tonightSummaryHtml(data, title) {
     const categories = data.payment_breakdown;
     const headlineText = `
         <strong>${data.unique_players}</strong> player${data.unique_players === 1 ? '' : 's'}
-        <span class="muted"> - ${tonightSummaryEsc(data.session.label || 'Session')} (${tonightSummaryEsc(data.session.date)})</span>
+        <span class="muted"> - ${tonightSummaryEsc(data.session.label || 'Session')} (${tonightSummaryEsc(formatDate(data.session.date))})</span>
     `;
     const headline = title
         ? `<div class="tonight-headline tonight-title-row"><h2>${tonightSummaryEsc(title)}</h2><span>${headlineText}</span></div>`

@@ -101,7 +101,7 @@ async function checkSessionState() {
     try {
         openSession = await api('/api/sessions/open');
         $('#no-session-panel').style.display = 'none';
-        $('#session-meta').textContent = `${openSession.label || 'Session'} - ${openSession.date}`;
+        $('#session-meta').textContent = `${openSession.label || 'Session'} - ${formatDate(openSession.date)}`;
         $('#session-mode-select').value = openSession.mode;
         $('#session-mode-select').style.display = '';
         $('#finish-session-btn').style.display = '';
@@ -131,6 +131,14 @@ async function checkSessionState() {
     }
 }
 
+// Whole-dollar amounts are the common case - "$10.00" everywhere reads as
+// noise when it's almost always a round number. Cents still show when a
+// club actually uses them (e.g. "$9.50").
+function formatCents(cents) {
+    const dollars = (cents ?? 0) / 100;
+    return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
+}
+
 // After closing, show the night's cash-up totals so whoever's finishing up
 // can reconcile the cash box before leaving - without a trip to History to
 // run a date-range export just to see tonight's numbers. Non-fatal if this
@@ -139,16 +147,16 @@ async function showFinishedSessionSummary(sessionId) {
     try {
         const summary = await api(`/api/sessions/${sessionId}/payment-summary`);
         const body = summary.payment_breakdown.length
-            ? summary.payment_breakdown.map((p) => `${p.category}: $${(p.amount_cents / 100).toFixed(2)}`).join('\n')
-                + `\n\nTotal funds: $${(summary.total_funds_cents / 100).toFixed(2)}`
+            ? summary.payment_breakdown.map((p) => `${p.category}: ${formatCents(p.amount_cents)}`).join('\n')
+                + `\n\nTotal funds: ${formatCents(summary.total_funds_cents)}`
             : 'No payments recorded.';
-        alert(`Session finished - ${summary.session.label || 'Session'} (${summary.session.date})\n\n${body}`);
+        alert(`Session finished - ${summary.session.label || 'Session'} (${formatDate(summary.session.date)})\n\n${body}`);
     } catch (err) { /* non-fatal */ }
 }
 
 $('#finish-session-btn').addEventListener('click', async () => {
     if (!openSession) return;
-    if (!confirm(`Finish today's session (${openSession.label || 'Session'} - ${openSession.date})? This closes check-in and rounds for the day - you can start a new session afterwards.`)) return;
+    if (!confirm(`Finish today's session (${openSession.label || 'Session'} - ${formatDate(openSession.date)})? This closes check-in and rounds for the day - you can start a new session afterwards.`)) return;
     try {
         const sessionId = openSession.id;
         await api(`/api/sessions/${sessionId}`, {
@@ -214,6 +222,7 @@ async function init() {
         const club = await api('/api/club-settings');
         $('#club-name').textContent = club.club_name;
         applyBranding(club);
+        setDateFormat(club.date_format);
     } catch (err) {
         // non-fatal
     }

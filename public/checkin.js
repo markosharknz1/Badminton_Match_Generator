@@ -96,6 +96,7 @@ async function init() {
         const club = await api('/api/club-settings');
         $('#club-name').textContent = club.club_name;
         applyBranding(club);
+        setDateFormat(club.date_format);
         paymentTrackingEnabled = !!club.square_enabled;
     } catch (err) {
         // Club settings should always exist (seeded row id=1); non-fatal if it fails.
@@ -123,7 +124,7 @@ async function enterStartSessionMode() {
 
     if (data.templates.length === 0) {
         body.innerHTML = `
-            <p class="muted">No session template is scheduled for today (${data.date}, ${data.day_of_week}).</p>
+            <p class="muted">No session template is scheduled for today (${formatDate(data.date)}, ${data.day_of_week}).</p>
             <p class="muted">Add one on the club management page, or start a one-off session below.</p>
             <div id="adhoc-form"></div>
         `;
@@ -273,7 +274,7 @@ async function enterCheckinMode() {
     $('#start-session-panel').style.display = 'none';
     $('#checkin-panel').style.display = 'block';
     showError('');
-    $('#session-meta').textContent = `${openSession.label || 'Session'} - ${openSession.date}`;
+    $('#session-meta').textContent = `${openSession.label || 'Session'} - ${formatDate(openSession.date)}`;
     $('#session-mode-select').value = openSession.mode;
     $('#session-mode-select').style.display = '';
     $('#finish-session-btn').style.display = '';
@@ -856,13 +857,13 @@ async function showFinishedSessionSummary(sessionId) {
             ? summary.payment_breakdown.map((p) => `${p.category}: ${formatCents(p.amount_cents)}`).join('\n')
                 + `\n\nTotal funds: ${formatCents(summary.total_funds_cents)}`
             : 'No payments recorded.';
-        alert(`Session finished - ${summary.session.label || 'Session'} (${summary.session.date})\n\n${body}`);
+        alert(`Session finished - ${summary.session.label || 'Session'} (${formatDate(summary.session.date)})\n\n${body}`);
     } catch (err) { /* non-fatal */ }
 }
 
 $('#finish-session-btn').addEventListener('click', async () => {
     if (!openSession) return;
-    if (!confirm(`Finish today's session (${openSession.label || 'Session'} - ${openSession.date})? This closes check-in and rounds for the day - you can start a new session afterwards.`)) return;
+    if (!confirm(`Finish today's session (${openSession.label || 'Session'} - ${formatDate(openSession.date)})? This closes check-in and rounds for the day - you can start a new session afterwards.`)) return;
     try {
         const sessionId = openSession.id;
         await api(`/api/sessions/${sessionId}`, {

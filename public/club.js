@@ -68,7 +68,9 @@ async function loadSettings() {
     const s = await api('/api/club-settings');
     $('#club-name').textContent = s.club_name;
     applyBranding(s);
+    setDateFormat(s.date_format);
     $('#cs-name').value = s.club_name;
+    $('#cs-date-format').value = s.date_format;
     $('#cs-game').value = s.default_game_minutes;
     $('#cs-break').value = s.default_break_minutes;
     $('#cs-square').checked = !!s.square_enabled;
@@ -87,6 +89,7 @@ $('#cs-save').addEventListener('click', async () => {
             method: 'PUT',
             body: JSON.stringify({
                 club_name: $('#cs-name').value.trim(),
+                date_format: $('#cs-date-format').value,
                 default_game_minutes: Number($('#cs-game').value),
                 default_break_minutes: Number($('#cs-break').value),
                 square_enabled: $('#cs-square').checked,
@@ -94,6 +97,7 @@ $('#cs-save').addEventListener('click', async () => {
             }),
         });
         $('#club-name').textContent = saved.club_name;
+        setDateFormat(saved.date_format);
         showError('');
         flashSaved('#cs-saved');
     } catch (err) {

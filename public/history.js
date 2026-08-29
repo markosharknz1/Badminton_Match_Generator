@@ -44,7 +44,7 @@ async function loadSessions() {
     } else {
         tbody.innerHTML = allSessions.map((s) => `
             <tr data-session-id="${s.id}">
-                <td>${esc(s.date)}</td>
+                <td>${formatDate(s.date)}</td>
                 <td>${esc(s.label || 'Session')} ${s.status === 'open' ? '<span class="badge">open</span>' : ''}</td>
                 <td>${esc(s.mode)}</td>
                 <td class="num">${s.players_checked_in}</td>
@@ -139,7 +139,7 @@ async function openSession(sessionId) {
     try {
         const data = await api(`/api/history/sessions/${sessionId}`);
         showView('session');
-        $('#session-title').textContent = `${data.session.label || 'Session'} - ${data.session.date}`;
+        $('#session-title').textContent = `${data.session.label || 'Session'} - ${formatDate(data.session.date)}`;
         mountTonightSummary($('#session-payment-summary'), sessionId);
         const container = $('#session-rounds');
         if (data.rounds.length === 0) {
@@ -194,7 +194,7 @@ async function openPlayer(playerId) {
         }
         tbody.innerHTML = data.games.map((g) => `
             <tr>
-                <td>${esc(g.date)}</td>
+                <td>${formatDate(g.date)}</td>
                 <td>${esc(g.label || 'Session')}</td>
                 <td class="num">${g.round_number}</td>
                 <td class="num">${g.court_number}</td>
@@ -290,6 +290,7 @@ async function init() {
         const club = await api('/api/club-settings');
         $('#club-name').textContent = club.club_name;
         applyBranding(club);
+        setDateFormat(club.date_format);
     } catch (err) { /* non-fatal */ }
     try {
         await loadSessions();

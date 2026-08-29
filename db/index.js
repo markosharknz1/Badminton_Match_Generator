@@ -177,6 +177,10 @@ function ensureColumns(db) {
         // cache-bust the favicon/logo without needing a live push.
         db.run(`ALTER TABLE club_settings ADD COLUMN club_icon_ver INTEGER NOT NULL DEFAULT 0`);
     }
+    if (!clubSettingsCols.includes('date_format')) {
+        // Display-only preference (DMY/MDY/YMD) - see public/dateFormat.js.
+        db.run(`ALTER TABLE club_settings ADD COLUMN date_format TEXT NOT NULL DEFAULT 'YMD' CHECK (date_format IN ('DMY','MDY','YMD'))`);
+    }
 
     const templateCols = all(db, `PRAGMA table_info(session_templates)`).map((c) => c.name);
     for (const col of ['default_game_minutes', 'default_break_minutes']) {
