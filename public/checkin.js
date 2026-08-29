@@ -41,9 +41,15 @@ function esc(s) {
     return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
-// Whole-dollar amounts are the common case - "$10.00" everywhere reads as
+// Whole-dollar amounts are the common case - "10.00" everywhere reads as
 // noise when it's almost always a round number. Cents still show when a
-// club actually uses them (e.g. "$9.50").
+// club actually uses them (e.g. "9.50"). Bare number, no "$" - for
+// prefilling an Amount input, not display text (see formatCents for that).
+function dollarsFromCents(cents) {
+    const dollars = (cents ?? 0) / 100;
+    return Number.isInteger(dollars) ? String(dollars) : dollars.toFixed(2);
+}
+
 function formatCents(cents) {
     const dollars = (cents ?? 0) / 100;
     return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
@@ -441,6 +447,29 @@ function splitFullName(fullName) {
     return { first: trimmed.slice(0, spaceIdx), last: trimmed.slice(spaceIdx + 1) };
 }
 
+// A player's usual payment category ("Member", "Member Concession", ...)
+// almost never changes night to night, so defaulting the dropdown to
+// whatever they picked last time saves staff re-selecting the same thing
+// for the same regular every single night - still just a default, not
+// locked in, and only applied if that category is actually one of
+// tonight's session rates (a one-off session's rate list might not
+// include it at all).
+async function applyLastPaymentCategoryDefault(playerId) {
+    let last;
+    try {
+        last = await api(`/api/players/${playerId}/last-payment-category`);
+    } catch (err) {
+        return; // non-fatal - the dropdown just stays on "Select payment..."
+    }
+    // The modal may have moved on to a different player (or closed) by the
+    // time this resolves - never stomp on whatever's showing now.
+    if (!last || checkinModalPlayerId !== playerId) return;
+    const rate = sessionPaymentRates.find((r) => r.payment_category_id === last.payment_category_id);
+    if (!rate || $('#cm-category').value) return; // not offered tonight, or staff already picked something
+    $('#cm-category').value = String(rate.payment_category_id);
+    $('#cm-category').dispatchEvent(new Event('change'));
+}
+
 // --- Check-in modal (double-click an available player) ---
 function openCheckinModal(playerId) {
     const p = allPlayers.find((x) => x.id === playerId);
@@ -476,6 +505,7 @@ function openCheckinModal(playerId) {
         $('#cm-method-field').style.display = '';
         $('#cm-note').value = '';
         $('#cm-hint').style.display = 'none';
+        applyLastPaymentCategoryDefault(playerId);
     } else {
         $('#cm-payment-section').style.display = 'none';
         $('#cm-note-section').style.display = 'none';
@@ -597,7 +627,7 @@ $('#cm-category').addEventListener('change', () => {
     // with no fixed price of its own (e.g. Cash/Card/Voucher on a one-off
     // session) - picking one shouldn't stomp on an amount staff already typed.
     if (opt && opt.dataset.cents !== undefined && Number(opt.dataset.cents) > 0) {
-        $('#cm-amount').value = (Number(opt.dataset.cents) / 100).toFixed(2);
+        $('#cm-amount').value = dollarsFromCents(Number(opt.dataset.cents));
         updateCheckinHint();
     }
     updateMethodFieldVisibility('#cm-category', '#cm-method-field', '#cm-method');
@@ -713,7 +743,7 @@ function openPaymentModal(attendanceId) {
     if (a.payment_category_id) select.value = String(a.payment_category_id);
 
     const selectedRate = sessionPaymentRates.find((r) => r.payment_category_id === Number(select.value)) || sessionPaymentRates[0];
-    $('#pm-amount').value = a.payment_amount_cents != null ? (a.payment_amount_cents / 100).toFixed(2) : ((selectedRate.amount_cents) / 100).toFixed(2);
+    $('#pm-amount').value = dollarsFromCents(a.payment_amount_cents != null ? a.payment_amount_cents : selectedRate.amount_cents);
     $('#pm-method').value = a.payment_method || '';
     $('#pm-note').value = a.payment_note || '';
     $('#pm-visitor-new-member').checked = !!a.first_time || !!a.new_member;
@@ -735,7 +765,7 @@ function closePaymentModal() {
 $('#pm-category').addEventListener('change', () => {
     const opt = $('#pm-category').selectedOptions[0];
     if (opt && Number(opt.dataset.cents) > 0) {
-        $('#pm-amount').value = (Number(opt.dataset.cents) / 100).toFixed(2);
+        $('#pm-amount').value = dollarsFromCents(Number(opt.dataset.cents));
         updatePaymentHint();
     }
     updateMethodFieldVisibility('#pm-category', '#pm-method-field', '#pm-method');
@@ -823,8 +853,8 @@ async function showFinishedSessionSummary(sessionId) {
     try {
         const summary = await api(`/api/sessions/${sessionId}/payment-summary`);
         const body = summary.payment_breakdown.length
-            ? summary.payment_breakdown.map((p) => `${p.category}: $${(p.amount_cents / 100).toFixed(2)}`).join('\n')
-                + `\n\nTotal funds: $${(summary.total_funds_cents / 100).toFixed(2)}`
+            ? summary.payment_breakdown.map((p) => `${p.category}: ${formatCents(p.amount_cents)}`).join('\n')
+                + `\n\nTotal funds: ${formatCents(summary.total_funds_cents)}`
             : 'No payments recorded.';
         alert(`Session finished - ${summary.session.label || 'Session'} (${summary.session.date})\n\n${body}`);
     } catch (err) { /* non-fatal */ }

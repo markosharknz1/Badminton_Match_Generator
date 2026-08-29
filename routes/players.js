@@ -149,6 +149,26 @@ router.get('/:id', (req, res) => {
     res.json(player);
 });
 
+// What this player paid as (Member/Non-Member/Concession/etc.) last time
+// they checked in anywhere - lets check-in default to it instead of
+// forcing staff to re-pick the same category for the same regular every
+// single night. is_system categories (the old Cash/Card/Voucher set) are
+// excluded - they're not a "type of player" and shouldn't be suggested
+// going forward. Whether the suggestion actually applies to tonight's
+// session (is it even one of this session's configured rates) is the
+// caller's job - a player's usual category might not exist on an ad-hoc
+// one-off session's rate list, for instance.
+router.get('/:id/last-payment-category', (req, res) => {
+    const row = store.queryOne(
+        `SELECT a.payment_category_id, pc.name
+         FROM attendance a JOIN payment_categories pc ON pc.id = a.payment_category_id
+         WHERE a.player_id = ? AND a.payment_category_id IS NOT NULL AND pc.is_system = 0
+         ORDER BY a.id DESC LIMIT 1`,
+        [req.params.id]
+    );
+    res.json(row || null);
+});
+
 router.post('/', (req, res) => {
     const errors = validatePlayer(req.body);
     if (errors.length) return res.status(400).json({ errors });
