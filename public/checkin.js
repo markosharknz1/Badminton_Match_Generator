@@ -613,11 +613,21 @@ $('#cm-edit-save').addEventListener('click', async () => {
 // every time, same idea as auto-filling Amount from the category's own
 // price. Still just a default: the field stays visible and editable in
 // case a night ever needs something different recorded.
-function applySportsVoucherMethodDefault(categorySelectId, methodSelectId) {
+function applySportsVoucherMethodDefault(categorySelectId, methodSelectId, amountInputId) {
     const categoryValue = $(categorySelectId).value;
     const selectedRate = sessionPaymentRates.find((r) => String(r.payment_category_id) === categoryValue);
     if (selectedRate?.name === 'Sports Voucher' && !$(methodSelectId).value) {
         $(methodSelectId).value = 'Voucher';
+        resetAmountIfVoucher(methodSelectId, amountInputId);
+    }
+}
+
+// A voucher was already paid for when it was bought/allocated - no cash or
+// card changes hands at redemption, so the amount paid is always $0 once
+// "Voucher" is picked as the method.
+function resetAmountIfVoucher(methodSelectId, amountInputId) {
+    if ($(methodSelectId).value === 'Voucher') {
+        $(amountInputId).value = '0';
     }
 }
 
@@ -631,7 +641,13 @@ $('#cm-category').addEventListener('change', () => {
         $('#cm-amount').value = dollarsFromCents(Number(opt.dataset.cents));
         updateCheckinHint();
     }
-    applySportsVoucherMethodDefault('#cm-category', '#cm-method');
+    applySportsVoucherMethodDefault('#cm-category', '#cm-method', '#cm-amount');
+    updateCheckinHint();
+});
+
+$('#cm-method').addEventListener('change', () => {
+    resetAmountIfVoucher('#cm-method', '#cm-amount');
+    updateCheckinHint();
 });
 
 $('#cm-amount').addEventListener('input', updateCheckinHint);
@@ -657,6 +673,11 @@ $('#cm-checkin').addEventListener('click', async () => {
         const categoryValue = $('#cm-category').value;
         if (!categoryValue) {
             $('#cm-error').textContent = 'Please select a payment option before checking in.';
+            $('#cm-error').style.display = 'block';
+            return;
+        }
+        if (!$('#cm-method').value) {
+            $('#cm-error').textContent = 'Please select how they paid (Cash, Card, or Voucher) before checking in.';
             $('#cm-error').style.display = 'block';
             return;
         }
@@ -749,7 +770,8 @@ function openPaymentModal(attendanceId) {
     $('#pm-note').value = a.payment_note || '';
     $('#pm-visitor-new-member').checked = !!a.first_time || !!a.new_member;
     updatePaymentHint();
-    applySportsVoucherMethodDefault('#pm-category', '#pm-method');
+    applySportsVoucherMethodDefault('#pm-category', '#pm-method', '#pm-amount');
+    updatePaymentHint();
     $('#payment-modal-backdrop').style.display = 'flex';
 }
 
@@ -769,7 +791,13 @@ $('#pm-category').addEventListener('change', () => {
         $('#pm-amount').value = dollarsFromCents(Number(opt.dataset.cents));
         updatePaymentHint();
     }
-    applySportsVoucherMethodDefault('#pm-category', '#pm-method');
+    applySportsVoucherMethodDefault('#pm-category', '#pm-method', '#pm-amount');
+    updatePaymentHint();
+});
+
+$('#pm-method').addEventListener('change', () => {
+    resetAmountIfVoucher('#pm-method', '#pm-amount');
+    updatePaymentHint();
 });
 
 $('#pm-amount').addEventListener('input', updatePaymentHint);
@@ -783,6 +811,10 @@ $('#payment-modal-backdrop').addEventListener('click', (e) => {
 $('#pm-save').addEventListener('click', async () => {
     if (!paymentModalContext) return;
     const categoryId = Number($('#pm-category').value);
+    if (!$('#pm-method').value) {
+        showError('Please select how they paid (Cash, Card, or Voucher).');
+        return;
+    }
     const amountDollars = parseFloat($('#pm-amount').value);
     if (Number.isNaN(amountDollars) || amountDollars < 0) {
         showError('Amount must be a valid non-negative number.');
