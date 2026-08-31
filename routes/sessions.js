@@ -56,7 +56,7 @@ router.get('/latest', (req, res) => {
 // reconcile players/payments without going to History and running a
 // date-range export just to see tonight's numbers.
 router.get('/:id/payment-summary', (req, res) => {
-    const session = store.queryOne(`SELECT id, date, label FROM sessions WHERE id = ?`, [req.params.id]);
+    const session = store.queryOne(`SELECT id, date, label, notes FROM sessions WHERE id = ?`, [req.params.id]);
     if (!session) return res.status(404).json({ error: 'Session not found' });
     const db = store.getDb();
     res.json({ session, unique_players: uniquePlayerCount(db, session.id), ...paymentBreakdown(db, session.id) });
@@ -226,11 +226,11 @@ router.put('/:id', (req, res) => {
     }
     try {
         store.run(
-            `UPDATE sessions SET template_id=?, date=?, label=?, scheduled_start_time=?, scheduled_end_time=?, location=?, status=?, mode=?, game_minutes=?, break_minutes=?, max_capacity=?, current_phase=?, phase_started_at=?, phase_ends_at=?
+            `UPDATE sessions SET template_id=?, date=?, label=?, scheduled_start_time=?, scheduled_end_time=?, location=?, status=?, mode=?, game_minutes=?, break_minutes=?, max_capacity=?, current_phase=?, phase_started_at=?, phase_ends_at=?, notes=?
              WHERE id=?`,
             [merged.template_id, merged.date, merged.label, merged.scheduled_start_time, merged.scheduled_end_time,
                 merged.location, merged.status, merged.mode, merged.game_minutes, merged.break_minutes, merged.max_capacity,
-                merged.current_phase, merged.phase_started_at, merged.phase_ends_at, req.params.id]
+                merged.current_phase, merged.phase_started_at, merged.phase_ends_at, merged.notes ?? null, req.params.id]
         );
         store.persist();
         broadcast('session', { session_id: Number(req.params.id) });

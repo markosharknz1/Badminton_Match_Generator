@@ -11,6 +11,18 @@ let buildState = {}; // court_id -> { staged: {gameId,format,side1,side2} | null
 let attendancePool = []; // present players (here_today or playing) for this session
 let playedPreviousRoundIds = new Set(); // player ids who played in buildRound-1, for the pool split
 
+// loadBuilderForRound() can be triggered concurrently from up to 3 independent
+// places in one tab - a court's own post-save reload, the SSE 'game'
+// broadcast fired for EVERY client on EVERY court save anywhere, and a manual
+// round-stepper click. Without this guard, whichever GET response happens to
+// resolve LAST wins and gets applied to buildState, regardless of which call
+// was actually issued last - a stale response landing after a fresher one
+// can make mergeBuilderState think a just-saved court has nothing staged
+// (its snapshot predates the save) and wipe the lineup back to empty in the
+// UI, even though it's safely persisted server-side. This monotonic counter
+// makes "last issued wins" instead of "last resolved wins".
+let builderRequestSeq = 0;
+
 const FORMAT_SIZES = { doubles: 4, singles: 2 };
 
 function $(sel) { return document.querySelector(sel); }
@@ -105,6 +117,7 @@ async function checkSessionState() {
         $('#session-mode-select').value = openSession.mode;
         $('#session-mode-select').style.display = '';
         $('#finish-session-btn').style.display = '';
+        $('#session-notes-btn').style.display = '';
 
         if (openSession.mode === 'social') {
             // No rounds at all in social mode - the check-in screen is the whole workflow.
@@ -125,6 +138,7 @@ async function checkSessionState() {
             $('#session-meta').textContent = 'No session open';
             $('#session-mode-select').style.display = 'none';
             $('#finish-session-btn').style.display = 'none';
+            $('#session-notes-btn').style.display = 'none';
         } else {
             showError(err.message);
         }
@@ -146,10 +160,11 @@ function formatCents(cents) {
 async function showFinishedSessionSummary(sessionId) {
     try {
         const summary = await api(`/api/sessions/${sessionId}/payment-summary`);
-        const body = summary.payment_breakdown.length
+        let body = summary.payment_breakdown.length
             ? summary.payment_breakdown.map((p) => `${p.category}: ${formatCents(p.amount_cents)}`).join('\n')
                 + `\n\nTotal funds: ${formatCents(summary.total_funds_cents)}`
             : 'No payments recorded.';
+        if (summary.session.notes) body += `\n\nNotes:\n${summary.session.notes}`;
         alert(`Session finished - ${summary.session.label || 'Session'} (${formatDate(summary.session.date)})\n\n${body}`);
     } catch (err) { /* non-fatal */ }
 }
@@ -228,6 +243,7 @@ async function init() {
     }
     await checkSessionState();
     subscribeToEvents(handleServerEvent);
+    wireSessionNotesButton(() => openSession, (updated) => { openSession = updated; });
 }
 
 // --- Round status + controls ---
@@ -359,11 +375,13 @@ async function loadAttendancePool() {
 // --- Builder ---
 async function loadBuilderForRound(round) {
     const prevRound = lastLoadedRound;
+    const mySeq = ++builderRequestSeq;
     buildRound = round;
     $('#build-round-number').textContent = buildRound;
     $('#round-minus').disabled = buildRound <= roundStatus.next_round_number;
 
     const staged = await api(`/api/sessions/${openSession.id}/games?round_number=${buildRound}&status=staged`);
+    if (mySeq !== builderRequestSeq) return; // a newer call started since - this response is stale, discard it entirely rather than merging
     buildState = mergeBuilderState(buildState, staged, sessionCourts, buildRound, prevRound);
     lastLoadedRound = buildRound;
 
@@ -374,6 +392,7 @@ async function loadBuilderForRound(round) {
     playedPreviousRoundIds = new Set();
     if (buildRound > 1) {
         const previousGames = await api(`/api/sessions/${openSession.id}/games?round_number=${buildRound - 1}`);
+        if (mySeq !== builderRequestSeq) return; // stale here too - a newer call has since taken over
         for (const g of previousGames) {
             for (const p of g.players) playedPreviousRoundIds.add(p.player_id);
         }

@@ -28,10 +28,26 @@
             <option value="auto">Automatic mode</option>
             <option value="social">Social mode</option>
         </select>
+        <button type="button" class="small" id="session-notes-btn" style="display:none;">Notes</button>
         <button type="button" class="small danger" id="finish-session-btn" style="display:none;">Finish session</button>
         <button type="button" id="install-app-btn" class="install-btn" style="display:none;">+ Install app</button>
     </div>
 </header>
+
+<div id="session-notes-modal-backdrop" class="modal-backdrop" style="display:none;">
+    <div class="modal">
+        <h3>Session notes</h3>
+        <p class="muted" style="margin-top:-8px;">e.g. other purchases like club shirts - included in the end-of-night summary.</p>
+        <div class="field">
+            <textarea id="session-notes-text" rows="5" style="width:100%;"></textarea>
+        </div>
+        <p class="error-banner" id="session-notes-error" style="display:none;"></p>
+        <div class="row" style="justify-content: flex-end;">
+            <button id="session-notes-cancel">Cancel</button>
+            <button class="primary" id="session-notes-save">Save</button>
+        </div>
+    </div>
+</div>
 
 <main class="wide">
     <div id="error-banner" class="error-banner" style="display:none;"></div>
@@ -109,6 +125,7 @@
 <script src="/branding.js"></script>
 <script src="/dateFormat.js"></script>
 <script src="/roundBuilder.js"></script>
+<script src="/sessionNotes.js"></script>
 <script src="/manage.js"></script>
 <script src="/pwa.js"></script>
 </body>

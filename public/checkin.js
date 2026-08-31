@@ -109,6 +109,7 @@ async function init() {
     await checkSessionState();
     mountTonightSummary($('#tonight-summary'), null, "Tonight's totals");
     subscribeToEvents(handleServerEvent);
+    wireSessionNotesButton(() => openSession, (updated) => { openSession = updated; });
 }
 
 // --- Start-session mode ---
@@ -118,6 +119,7 @@ async function enterStartSessionMode() {
     $('#session-meta').textContent = 'No session open';
     $('#session-mode-select').style.display = 'none';
     $('#finish-session-btn').style.display = 'none';
+    $('#session-notes-btn').style.display = 'none';
 
     const data = await api('/api/session-templates/for-date');
     const body = $('#start-session-body');
@@ -278,6 +280,7 @@ async function enterCheckinMode() {
     $('#session-mode-select').value = openSession.mode;
     $('#session-mode-select').style.display = '';
     $('#finish-session-btn').style.display = '';
+    $('#session-notes-btn').style.display = '';
     await loadAllPlayers();
     sessionPaymentRates = paymentTrackingEnabled ? await api(`/api/sessions/${openSession.id}/payment-rates`) : [];
     await refreshAttendance();
@@ -490,8 +493,13 @@ function openCheckinModal(playerId) {
         // Should be rare now that a new session always gets seeded with at
         // least the club's active categories (see routes/sessions.js), but
         // stay safe if a club deactivates every category mid-session - a
-        // dead-end empty dropdown is worse than a clear message here.
-        showError('This session has no payment categories configured, so nobody can be checked in. Add rates on the Club page, or ask an admin to fix this session\'s pricing.');
+        // dead-end empty dropdown is worse than a clear message here. This
+        // branch is also reached right after quick-adding a brand-new
+        // player (the #np-submit handler opens this modal immediately on
+        // creation) - the player record was already saved successfully at
+        // that point, so the message says so explicitly instead of looking
+        // like the whole thing silently failed.
+        showError(`${p.first_name} ${p.last_name} is saved and on the roster, but this session has no payment categories configured, so they can't be checked in yet. Add rates on the Club page, or ask an admin to fix this session's pricing.`);
         return;
     }
 
@@ -885,10 +893,11 @@ $('#player-search').addEventListener('input', renderAvailableTable);
 async function showFinishedSessionSummary(sessionId) {
     try {
         const summary = await api(`/api/sessions/${sessionId}/payment-summary`);
-        const body = summary.payment_breakdown.length
+        let body = summary.payment_breakdown.length
             ? summary.payment_breakdown.map((p) => `${p.category}: ${formatCents(p.amount_cents)}`).join('\n')
                 + `\n\nTotal funds: ${formatCents(summary.total_funds_cents)}`
             : 'No payments recorded.';
+        if (summary.session.notes) body += `\n\nNotes:\n${summary.session.notes}`;
         alert(`Session finished - ${summary.session.label || 'Session'} (${formatDate(summary.session.date)})\n\n${body}`);
     } catch (err) { /* non-fatal */ }
 }

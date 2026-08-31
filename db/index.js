@@ -221,6 +221,48 @@ function ensureColumns(db) {
             db.run(`ALTER TABLE session_templates ADD COLUMN ${col} INTEGER`);
         }
     }
+
+    const sessionCols = all(db, `PRAGMA table_info(sessions)`).map((c) => c.name);
+    if (!sessionCols.includes('notes')) {
+        // Free-text, e.g. "sold 2 club shirts, $40 cash" - see the Notes
+        // popup on Check-in/Rounds and the end-of-night summary email.
+        db.run(`ALTER TABLE sessions ADD COLUMN notes TEXT`);
+    }
+}
+
+// A plain-text explainer dropped once into the backup folder itself, so
+// it's findable by anyone who stumbles onto Documents\GameScheduler\backups
+// without already knowing what this app is or where to get it again -
+// written fresh any time its content changes (e.g. a URL update), left
+// alone otherwise. Filename deliberately does NOT match the
+// "game_scheduler_*.db" pattern backup rotation prunes below, so it's
+// never at risk of being swept up by that cleanup - if that pattern is
+// ever changed, keep this filename excluded from it.
+const BACKUP_README_PATH_ = path.join(BACKUP_DIR, 'README.txt');
+const BACKUP_README_CONTENT = `Game Scheduler - database backups
+==================================
+
+This folder holds automatic backups of the club's Game Scheduler database
+(game_scheduler_<timestamp>.db), one per app launch. The newest ${BACKUPS_TO_KEEP}
+are kept; older ones are deleted automatically.
+
+To restore a backup:
+1. Close Game Scheduler completely.
+2. Copy the backup file you want back to where GameScheduler.exe lives,
+   and rename it to "game_scheduler.db" (replacing the current one).
+3. Re-launch GameScheduler.exe.
+
+To re-download the app itself:
+  Repository:  https://github.com/markosharknz1/Badminton_Match_Generator
+  Releases:    https://github.com/markosharknz1/Badminton_Match_Generator/releases
+
+Download the latest release's GameScheduler.exe, then restore a backup as
+above if you need to bring your club's data back.
+`;
+
+function writeBackupReadme() {
+    if (fs.existsSync(BACKUP_README_PATH_) && fs.readFileSync(BACKUP_README_PATH_, 'utf8') === BACKUP_README_CONTENT) return;
+    fs.writeFileSync(BACKUP_README_PATH_, BACKUP_README_CONTENT);
 }
 
 // Copies the live database to Documents\GameScheduler\backups, timestamped,
@@ -235,11 +277,13 @@ function backupToDocuments() {
     try {
         if (!fs.existsSync(DB_PATH)) return null;
         fs.mkdirSync(BACKUP_DIR, { recursive: true });
+        writeBackupReadme();
 
         const stamp = new Date().toISOString().replace(/[:.]/g, '-');
         const backupPath = path.join(BACKUP_DIR, `game_scheduler_${stamp}.db`);
         fs.copyFileSync(DB_PATH, backupPath);
 
+        // Only ever matches "game_scheduler_*.db" - README.txt is never at risk of pruning.
         const files = fs.readdirSync(BACKUP_DIR)
             .filter((f) => f.startsWith('game_scheduler_') && f.endsWith('.db'))
             .sort(); // ISO timestamps in the filename sort chronologically
