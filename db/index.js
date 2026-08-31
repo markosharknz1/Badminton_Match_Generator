@@ -269,6 +269,48 @@ function ensureAttendanceBookedState(db) {
     db.run(`CREATE INDEX IF NOT EXISTS idx_attendance_player ON attendance(player_id)`);
 }
 
+// Same table-rebuild approach as ensureAttendanceBookedState, for the same
+// reason (SQLite can't alter a CHECK constraint in place) - adds 'paused'
+// to sessions.current_phase's allowed values, plus 3 new nullable columns
+// that track enough state to resume a paused phase with the correct
+// remaining time (see lib/roundLifecycle.js's pauseCurrentPhase/
+// resumeCurrentPhase). Must run after ensureColumns() so every column it
+// copies (including 'notes', added by a plain ALTER TABLE earlier in that
+// same function) already exists on whatever real database it's rebuilding.
+function ensureSessionsPausedPhase(db) {
+    const row = get(db, `SELECT sql FROM sqlite_master WHERE type='table' AND name='sessions'`);
+    if (!row || row.sql.includes("'paused'")) return;
+
+    db.run(`CREATE TABLE sessions_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        template_id INTEGER REFERENCES session_templates(id),
+        date TEXT NOT NULL,
+        label TEXT,
+        scheduled_start_time TEXT,
+        scheduled_end_time TEXT,
+        location TEXT,
+        status TEXT NOT NULL CHECK (status IN ('open','closed')) DEFAULT 'open',
+        mode TEXT NOT NULL CHECK (mode IN ('auto','manual','social')),
+        game_minutes INTEGER,
+        break_minutes INTEGER,
+        max_capacity INTEGER,
+        current_phase TEXT NOT NULL CHECK (current_phase IN ('idle','game','break','awaiting_lineup','paused')) DEFAULT 'idle',
+        phase_started_at TEXT,
+        phase_ends_at TEXT,
+        notes TEXT,
+        paused_remaining_ms INTEGER,
+        phase_paused_at TEXT,
+        paused_from_phase TEXT CHECK (paused_from_phase IN ('game','break'))
+    )`);
+    db.run(`INSERT INTO sessions_new
+        (id, template_id, date, label, scheduled_start_time, scheduled_end_time, location, status, mode, game_minutes, break_minutes, max_capacity, current_phase, phase_started_at, phase_ends_at, notes)
+        SELECT id, template_id, date, label, scheduled_start_time, scheduled_end_time, location, status, mode, game_minutes, break_minutes, max_capacity, current_phase, phase_started_at, phase_ends_at, notes
+        FROM sessions`);
+    db.run(`DROP TABLE sessions`);
+    db.run(`ALTER TABLE sessions_new RENAME TO sessions`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date)`);
+}
+
 // A plain-text explainer dropped once into the backup folder itself, so
 // it's findable by anyone who stumbles onto Documents\GameScheduler\backups
 // without already knowing what this app is or where to get it again -
@@ -366,6 +408,6 @@ function get(db, sql, params = []) {
 
 module.exports = {
     DB_PATH, SCHEMA_PATH, BACKUP_DIR, openDb, applySchema, saveDb, all, get,
-    ensureBaselineDefaults, ensureColumns, ensureAttendanceBookedState, markLegacyAdhocCategoriesSystem, backfillSportsVoucherMethod, zeroVoucherAmounts, closeStaleOpenSessions, backupToDocuments, listBackups,
+    ensureBaselineDefaults, ensureColumns, ensureAttendanceBookedState, ensureSessionsPausedPhase, markLegacyAdhocCategoriesSystem, backfillSportsVoucherMethod, zeroVoucherAmounts, closeStaleOpenSessions, backupToDocuments, listBackups,
     todayLocalDateStr,
 };

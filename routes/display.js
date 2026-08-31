@@ -127,6 +127,8 @@ router.get('/sessions/:id/display', (req, res) => {
             current_phase: session.current_phase,
             phase_started_at: session.phase_started_at,
             phase_ends_at: session.phase_ends_at,
+            paused_from_phase: session.paused_from_phase,
+            paused_remaining_ms: session.paused_remaining_ms,
             break_minutes: breakMinutes,
         },
         courts,

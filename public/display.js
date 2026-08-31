@@ -64,6 +64,7 @@ function renderPhase() {
     label.className = `phase-label ${phase}`;
     if (phase === 'game') label.textContent = 'Round ends in';
     else if (phase === 'break') label.textContent = 'Next round in';
+    else if (phase === 'paused') label.textContent = 'Paused';
     else if (phase === 'awaiting_lineup') label.textContent = 'Waiting for next lineup';
     else label.textContent = 'Session starting soon';
     tickCountdown();
@@ -88,6 +89,19 @@ function tickCountdown() {
     const session = displayData?.session;
     const phase = session?.current_phase;
     const endsAt = session?.phase_ends_at;
+
+    if (phase === 'paused') {
+        // The timer is genuinely frozen (phase_ends_at is null while
+        // paused) - show the time that was left when paused, static rather
+        // than blank, so players don't mistake a paused screen for a
+        // crashed one. A clear "Paused" banner explains why nothing's moving.
+        el.textContent = formatMMSS(Math.max(0, Math.round((session.paused_remaining_ms ?? 0) / 1000)));
+        el.className = 'urgent';
+        banner.style.display = 'block';
+        banner.textContent = 'Paused - please wait';
+        nextLine.style.display = 'none';
+        return;
+    }
 
     if (!displayData || !endsAt || (phase !== 'game' && phase !== 'break')) {
         el.textContent = '';

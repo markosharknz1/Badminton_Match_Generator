@@ -21,6 +21,8 @@ router.get('/sessions/:id/rounds/status', handle(lifecycle.roundStatus));
 router.post('/sessions/:id/rounds/start-next', handle(lifecycle.startNextRound));
 router.post('/sessions/:id/rounds/end-game', handle(lifecycle.endGamePhase));
 router.post('/sessions/:id/rounds/end-break', handle(lifecycle.endBreakPhase));
+router.post('/sessions/:id/rounds/pause', handle(lifecycle.pauseCurrentPhase));
+router.post('/sessions/:id/rounds/resume', handle(lifecycle.resumeCurrentPhase));
 
 // Dry run: shows what auto-generate would produce for a round without
 // writing anything. Useful for testing/debugging and for staff curiosity in

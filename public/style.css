@@ -377,6 +377,7 @@ nav.app-nav a.active {
 .phase-badge.break { background: #fef3c7; color: var(--warn); }
 .phase-badge.awaiting_lineup { background: #fee2e2; color: var(--danger); }
 .phase-badge.idle { background: #e5e7eb; color: var(--muted); }
+.phase-badge.paused { background: #fee2e2; color: var(--danger); }
 
 /* Always visible regardless of round phase/staging state - switching modes
    used to have no visible effect at all whenever courts were already

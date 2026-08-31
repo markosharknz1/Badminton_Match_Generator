@@ -85,10 +85,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     game_minutes INTEGER,
     break_minutes INTEGER,
     max_capacity INTEGER,
-    current_phase TEXT NOT NULL CHECK (current_phase IN ('idle','game','break','awaiting_lineup')) DEFAULT 'idle',
+    current_phase TEXT NOT NULL CHECK (current_phase IN ('idle','game','break','awaiting_lineup','paused')) DEFAULT 'idle',
     phase_started_at TEXT,
     phase_ends_at TEXT,
-    notes TEXT
+    notes TEXT,
+    paused_remaining_ms INTEGER,
+    phase_paused_at TEXT,
+    paused_from_phase TEXT CHECK (paused_from_phase IN ('game','break'))
 );
 
 CREATE TABLE IF NOT EXISTS session_courts (

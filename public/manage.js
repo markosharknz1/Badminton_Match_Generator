@@ -254,7 +254,14 @@ async function loadRoundStatus() {
 
 // Phase values (and their CSS classes / API routes) stay as-is internally -
 // this only controls what staff actually see.
-const PHASE_LABELS = { idle: 'idle', game: 'game', break: 'changeover', awaiting_lineup: 'awaiting lineup' };
+const PHASE_LABELS = { idle: 'idle', game: 'game', break: 'changeover', awaiting_lineup: 'awaiting lineup', paused: 'paused' };
+
+function minutesSeconds(ms) {
+    const totalSeconds = Math.max(0, Math.round(ms / 1000));
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+}
 
 function renderRoundControls() {
     const badge = $('#phase-badge');
@@ -264,21 +271,37 @@ function renderRoundControls() {
 
     const detail = $('#phase-detail');
     const btn = $('#round-action-btn');
+    const pauseBtn = $('#pause-resume-btn');
 
     if (roundStatus.current_phase === 'game') {
         detail.textContent = roundStatus.phase_ends_at ? `round ${roundStatus.current_round} - ends ${timeOnly(roundStatus.phase_ends_at)}` : `round ${roundStatus.current_round}`;
+        btn.style.display = '';
         btn.textContent = `End round ${roundStatus.current_round}`;
         btn.disabled = false;
         btn.onclick = () => runRoundAction(() => api(`/api/sessions/${openSession.id}/rounds/end-game`, { method: 'POST' }));
+        showPauseButton('Pause round');
     } else if (roundStatus.current_phase === 'break') {
         // "Changeover" in the UI, not "break" - it's the time for players to
         // get off court and the next group on, not a rest period. The
         // underlying phase value/DB column stays 'break' - only the label
         // shown to staff/players changes.
         detail.textContent = roundStatus.phase_ends_at ? `changeover - ends ${timeOnly(roundStatus.phase_ends_at)}` : 'changeover';
+        btn.style.display = '';
         btn.textContent = 'End changeover';
         btn.disabled = false;
         btn.onclick = () => runRoundAction(() => api(`/api/sessions/${openSession.id}/rounds/end-break`, { method: 'POST' }));
+        showPauseButton('Pause changeover');
+    } else if (roundStatus.current_phase === 'paused') {
+        // Injury/announcement etc - the round or changeover's timer is
+        // frozen, not ended. Nothing to "end" while paused, so the main
+        // action button steps aside for Resume.
+        const pausedLabel = roundStatus.paused_from_phase === 'game' ? `round ${roundStatus.current_round || ''}`.trim() : 'changeover';
+        detail.textContent = `${pausedLabel} paused - ${minutesSeconds(roundStatus.paused_remaining_ms)} left`;
+        btn.style.display = 'none';
+        pauseBtn.style.display = '';
+        pauseBtn.className = 'primary';
+        pauseBtn.textContent = 'Resume';
+        pauseBtn.onclick = () => runRoundAction(() => api(`/api/sessions/${openSession.id}/rounds/resume`, { method: 'POST' }));
     } else {
         // idle or awaiting_lineup
         const isAuto = openSession.mode === 'auto';
@@ -290,10 +313,20 @@ function renderRoundControls() {
         } else {
             detail.textContent = `stage round ${roundStatus.next_round_number} below first`;
         }
+        btn.style.display = '';
         btn.textContent = `Start round ${roundStatus.next_round_number}`;
         btn.disabled = !canStart;
         btn.onclick = () => runRoundAction(() => api(`/api/sessions/${openSession.id}/rounds/start-next`, { method: 'POST' }));
+        pauseBtn.style.display = 'none';
     }
+}
+
+function showPauseButton(label) {
+    const pauseBtn = $('#pause-resume-btn');
+    pauseBtn.style.display = '';
+    pauseBtn.className = '';
+    pauseBtn.textContent = label;
+    pauseBtn.onclick = () => runRoundAction(() => api(`/api/sessions/${openSession.id}/rounds/pause`, { method: 'POST' }));
 }
 
 async function runRoundAction(fn) {
