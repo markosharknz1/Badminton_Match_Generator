@@ -159,11 +159,15 @@ CREATE TABLE IF NOT EXISTS club_settings (
     default_break_minutes INTEGER NOT NULL DEFAULT 3,
     max_capacity INTEGER,
     square_enabled INTEGER NOT NULL DEFAULT 0 CHECK (square_enabled IN (0,1)),
-    -- Credentials only, saved for future integration work - nothing in the
-    -- app actually sends email or processes payments through these yet.
+    -- SMTP2Go (HTTP API email service - see lib/sendEmail.js) sends the
+    -- manual end-of-night summary email (routes/sessions.js's send-summary-
+    -- email). Square credentials below are still unused - saved only.
     smtp2go_api_key TEXT,
     smtp2go_sender_email TEXT,
     smtp2go_sender_name TEXT,
+    -- Comma/newline-separated list - one club-wide list reused every
+    -- session, not per-session config.
+    summary_recipient_emails TEXT,
     square_access_token TEXT,
     square_location_id TEXT,
     -- Auto-generate prefers mixed pairs / same-gender courts over 3-1 or

@@ -2,12 +2,14 @@ const express = require('express');
 const store = require('../db/store');
 const { broadcast } = require('../lib/eventBus');
 const { paymentBreakdown, uniquePlayerCount } = require('../lib/sessionReport');
+const { sendEmail, parseRecipientList } = require('../lib/sendEmail');
+const { buildSessionSummaryEmail } = require('../lib/sessionSummaryEmail');
 
 const router = express.Router();
 
 const STATUSES = ['open', 'closed'];
 const MODES = ['auto', 'manual', 'social'];
-const PHASES = ['idle', 'game', 'break', 'awaiting_lineup'];
+const PHASES = ['idle', 'game', 'break', 'awaiting_lineup', 'paused'];
 
 function paymentRatesForSession(sessionId) {
     return store.query(
@@ -60,6 +62,32 @@ router.get('/:id/payment-summary', (req, res) => {
     if (!session) return res.status(404).json({ error: 'Session not found' });
     const db = store.getDb();
     res.json({ session, unique_players: uniquePlayerCount(db, session.id), ...paymentBreakdown(db, session.id) });
+});
+
+// Manual only - staff review the summary, then click Send. Never triggered
+// automatically on close, so the app stays fully local/offline until staff
+// choose to send (see lib/sendEmail.js/lib/sessionSummaryEmail.js). Errors
+// here (bad api key, no recipients) are just reported back to the clicking
+// user - nothing else about the session is affected either way.
+router.post('/:id/send-summary-email', async (req, res) => {
+    const session = store.queryOne(`SELECT id, date, label, notes FROM sessions WHERE id = ?`, [req.params.id]);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const club = store.queryOne('SELECT * FROM club_settings WHERE id = 1');
+    const to = parseRecipientList(club?.summary_recipient_emails);
+    if (to.length === 0) return res.status(400).json({ error: 'No recipient email addresses configured - add some on the Club Settings page.' });
+
+    try {
+        const { subject, htmlBody, textBody } = buildSessionSummaryEmail(store.getDb(), session);
+        const result = await sendEmail({
+            apiKey: club.smtp2go_api_key,
+            senderEmail: club.smtp2go_sender_email,
+            senderName: club.smtp2go_sender_name,
+            to, subject, htmlBody, textBody,
+        });
+        res.json({ sent_to: to, ...result });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
 // The "same as usual" / "need to change something" start flow. Only one open

@@ -49,6 +49,20 @@
     </div>
 </div>
 
+<div id="session-summary-modal-backdrop" class="modal-backdrop" style="display:none;">
+    <div class="modal wide">
+        <h3 id="session-summary-title">Session finished</h3>
+        <div id="session-summary-body"></div>
+        <div class="row" style="justify-content: space-between; align-items: center;">
+            <span class="muted" id="session-summary-send-result"></span>
+            <div class="row">
+                <button id="session-summary-close">Close</button>
+                <button class="primary" id="session-summary-send">Send summary</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <main>
     <div id="error-banner" class="error-banner" style="display:none;"></div>
 
@@ -266,6 +280,7 @@
 <script src="/dateFormat.js"></script>
 <script src="/tonightSummary.js"></script>
 <script src="/sessionNotes.js"></script>
+<script src="/sessionSummaryModal.js"></script>
 <script src="/checkin.js"></script>
 <script src="/pwa.js"></script>
 </body>

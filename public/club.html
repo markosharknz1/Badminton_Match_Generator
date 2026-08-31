@@ -132,13 +132,19 @@
 
     <section class="panel" data-section="email">
         <h2>Email</h2>
-        <p class="muted">Connection details for sending email via SMTP2Go. Saved here for now - nothing in the app sends email yet, this just stores the credentials for when that's built.</p>
+        <p class="muted">Connection details for sending the end-of-night summary via SMTP2Go. Staff click "Send summary" after finishing a session - nothing is ever sent automatically.</p>
         <div class="row">
             <div class="field"><label>API key</label><input type="password" id="email-api-key" autocomplete="off"></div>
             <div class="field"><label>Sender email</label><input type="email" id="email-sender-address"></div>
             <div class="field"><label>Sender name</label><input type="text" id="email-sender-name"></div>
         </div>
+        <div class="field">
+            <label>Send summaries to</label>
+            <textarea id="email-recipients" rows="2" placeholder="e.g. treasurer@club.org, committee@club.org"></textarea>
+            <p class="muted" style="margin:4px 0 0;">Comma or newline separated - one club-wide list, used for every session.</p>
+        </div>
         <button class="primary" id="email-save">Save</button><span class="save-note" id="email-saved"></span>
+        <button id="email-send-test">Send test email</button><span class="save-note" id="email-test-result"></span>
     </section>
 
     <section class="panel" data-section="payments">

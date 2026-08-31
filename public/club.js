@@ -82,6 +82,7 @@ async function loadSettings() {
     $('#email-api-key').value = s.smtp2go_api_key || '';
     $('#email-sender-address').value = s.smtp2go_sender_email || '';
     $('#email-sender-name').value = s.smtp2go_sender_name || '';
+    $('#email-recipients').value = s.summary_recipient_emails || '';
     $('#payments-access-token').value = s.square_access_token || '';
     $('#payments-location-id').value = s.square_location_id || '';
 }
@@ -159,7 +160,7 @@ $('#icon-file').addEventListener('change', async () => {
     }
 });
 
-// --- Email (SMTP2Go credentials - not wired to actually send anything yet) ---
+// --- Email (SMTP2Go - sends the manual end-of-night summary) ---
 $('#email-save').addEventListener('click', async () => {
     try {
         await api('/api/club-settings', {
@@ -168,12 +169,26 @@ $('#email-save').addEventListener('click', async () => {
                 smtp2go_api_key: $('#email-api-key').value.trim() || null,
                 smtp2go_sender_email: $('#email-sender-address').value.trim() || null,
                 smtp2go_sender_name: $('#email-sender-name').value.trim() || null,
+                summary_recipient_emails: $('#email-recipients').value.trim() || null,
             }),
         });
         showError('');
         flashSaved('#email-saved');
     } catch (err) {
         showError(err.message);
+    }
+});
+
+$('#email-send-test').addEventListener('click', async () => {
+    const resultEl = $('#email-test-result');
+    resultEl.textContent = 'Sending...';
+    resultEl.className = 'save-note';
+    try {
+        await api('/api/club-settings/send-test-email', { method: 'POST' });
+        resultEl.textContent = 'Sent!';
+    } catch (err) {
+        resultEl.textContent = err.message;
+        resultEl.className = 'save-note error';
     }
 });
 

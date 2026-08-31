@@ -145,27 +145,13 @@ async function checkSessionState() {
     }
 }
 
-// Whole-dollar amounts are the common case - "$10.00" everywhere reads as
-// noise when it's almost always a round number. Cents still show when a
-// club actually uses them (e.g. "$9.50").
-function formatCents(cents) {
-    const dollars = (cents ?? 0) / 100;
-    return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
-}
-
 // After closing, show the night's cash-up totals so whoever's finishing up
 // can reconcile the cash box before leaving - without a trip to History to
 // run a date-range export just to see tonight's numbers. Non-fatal if this
 // part fails (session is already closed either way).
 async function showFinishedSessionSummary(sessionId) {
     try {
-        const summary = await api(`/api/sessions/${sessionId}/payment-summary`);
-        let body = summary.payment_breakdown.length
-            ? summary.payment_breakdown.map((p) => `${p.category}: ${formatCents(p.amount_cents)}`).join('\n')
-                + `\n\nTotal funds: ${formatCents(summary.total_funds_cents)}`
-            : 'No payments recorded.';
-        if (summary.session.notes) body += `\n\nNotes:\n${summary.session.notes}`;
-        alert(`Session finished - ${summary.session.label || 'Session'} (${formatDate(summary.session.date)})\n\n${body}`);
+        await showSessionSummaryModal(sessionId);
     } catch (err) { /* non-fatal */ }
 }
 

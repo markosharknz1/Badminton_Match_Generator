@@ -956,13 +956,7 @@ $('#player-search').addEventListener('input', renderAvailableTable);
 // part fails (session is already closed either way).
 async function showFinishedSessionSummary(sessionId) {
     try {
-        const summary = await api(`/api/sessions/${sessionId}/payment-summary`);
-        let body = summary.payment_breakdown.length
-            ? summary.payment_breakdown.map((p) => `${p.category}: ${formatCents(p.amount_cents)}`).join('\n')
-                + `\n\nTotal funds: ${formatCents(summary.total_funds_cents)}`
-            : 'No payments recorded.';
-        if (summary.session.notes) body += `\n\nNotes:\n${summary.session.notes}`;
-        alert(`Session finished - ${summary.session.label || 'Session'} (${formatDate(summary.session.date)})\n\n${body}`);
+        await showSessionSummaryModal(sessionId);
     } catch (err) { /* non-fatal */ }
 }
 

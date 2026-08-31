@@ -192,7 +192,7 @@ function ensureColumns(db) {
 
     const clubSettingsCols = all(db, `PRAGMA table_info(club_settings)`).map((c) => c.name);
     const newClubSettingsCols = [
-        'smtp2go_api_key', 'smtp2go_sender_email', 'smtp2go_sender_name',
+        'smtp2go_api_key', 'smtp2go_sender_email', 'smtp2go_sender_name', 'summary_recipient_emails',
         'square_access_token', 'square_location_id',
     ];
     for (const col of newClubSettingsCols) {
