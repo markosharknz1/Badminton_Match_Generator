@@ -74,7 +74,7 @@
                 <p class="muted table-hint">Double-click a player to check them in.</p>
                 <div class="roster-table-wrap">
                     <table class="roster-table">
-                        <thead><tr><th>Name</th><th>Skill</th><th>Status</th></tr></thead>
+                        <thead><tr><th>Name</th><th>Skill</th><th>Status</th><th></th></tr></thead>
                         <tbody id="available-tbody"></tbody>
                     </table>
                 </div>
@@ -119,6 +119,17 @@
                         <tbody id="here-tbody"></tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <div class="panel" id="booked-panel" style="display:none;">
+            <h2>Booked - not yet arrived <span class="count-pill" id="booked-count">0</span></h2>
+            <p class="muted table-hint">Said they're coming but haven't checked in or paid yet. Click "Arrived" once they show up.</p>
+            <div class="roster-table-wrap">
+                <table class="roster-table">
+                    <thead><tr><th>Name</th><th>Skill</th><th></th></tr></thead>
+                    <tbody id="booked-tbody"></tbody>
+                </table>
             </div>
         </div>
     </section>

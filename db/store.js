@@ -2,7 +2,7 @@
 // Every mutating call persists to disk immediately (persist()) - this is a
 // single-writer local app, not a high-throughput server, so simplicity and
 // durability win over batching writes.
-const { openDb, applySchema, saveDb, ensureBaselineDefaults, ensureColumns, markLegacyAdhocCategoriesSystem, backfillSportsVoucherMethod, zeroVoucherAmounts, closeStaleOpenSessions, backupToDocuments, all, get } = require('./index');
+const { openDb, applySchema, saveDb, ensureBaselineDefaults, ensureColumns, ensureAttendanceBookedState, markLegacyAdhocCategoriesSystem, backfillSportsVoucherMethod, zeroVoucherAmounts, closeStaleOpenSessions, backupToDocuments, all, get } = require('./index');
 
 let db = null;
 
@@ -11,6 +11,7 @@ async function init() {
     applySchema(db); // safety net if db:init was never run
     ensureBaselineDefaults(db); // self-heals a schema-only DB (e.g. demo data declined at install)
     ensureColumns(db); // retrofits columns added after this DB was first created
+    ensureAttendanceBookedState(db); // table-rebuild migration: allows attendance.state = 'booked' (must run after ensureColumns)
     markLegacyAdhocCategoriesSystem(db); // hide the old Cash/Card/Voucher categories from Settings, keep history intact
     backfillSportsVoucherMethod(db); // any Sports Voucher payment saved before this was tracked
     zeroVoucherAmounts(db); // a voucher redemption is never new money taken - zero any stale nonzero amount

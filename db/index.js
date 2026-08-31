@@ -230,6 +230,45 @@ function ensureColumns(db) {
     }
 }
 
+// SQLite can't alter a CHECK constraint in place - unlike every other
+// migration in this file (all a simple additive ALTER TABLE ADD COLUMN),
+// adding 'booked' to attendance.state's allowed values needs a full table
+// rebuild: copy every row into a fresh table with the new constraint, drop
+// the old, rename. Only runs if the existing constraint doesn't already
+// allow 'booked' (checked via sqlite_master's stored CREATE TABLE text,
+// since PRAGMA table_info doesn't expose CHECK constraints) - so it's still
+// safe to call on every boot like everything else here, a no-op once a
+// database has already been rebuilt. Must run AFTER ensureColumns(), since
+// it assumes every column ensureColumns can add (payment_method, new_member,
+// ...) already exists on whatever real database it's rebuilding.
+function ensureAttendanceBookedState(db) {
+    const row = get(db, `SELECT sql FROM sqlite_master WHERE type='table' AND name='attendance'`);
+    if (!row || row.sql.includes("'booked'")) return;
+
+    db.run(`CREATE TABLE attendance_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL REFERENCES sessions(id),
+        player_id INTEGER NOT NULL REFERENCES players(id),
+        checked_in_at TEXT NOT NULL DEFAULT (datetime('now')),
+        state TEXT NOT NULL CHECK (state IN ('checked_in','here_today','playing','booked','left')) DEFAULT 'checked_in',
+        left_reason TEXT CHECK (left_reason IN ('no-show','departed','injured','session_ended','removed')),
+        payment_category_id INTEGER REFERENCES payment_categories(id),
+        payment_amount_cents INTEGER,
+        payment_method TEXT CHECK (payment_method IN ('Cash','Card','Voucher')),
+        payment_note TEXT,
+        first_time INTEGER NOT NULL DEFAULT 0 CHECK (first_time IN (0,1)),
+        new_member INTEGER NOT NULL DEFAULT 0 CHECK (new_member IN (0,1))
+    )`);
+    db.run(`INSERT INTO attendance_new
+        (id, session_id, player_id, checked_in_at, state, left_reason, payment_category_id, payment_amount_cents, payment_method, payment_note, first_time, new_member)
+        SELECT id, session_id, player_id, checked_in_at, state, left_reason, payment_category_id, payment_amount_cents, payment_method, payment_note, first_time, new_member
+        FROM attendance`);
+    db.run(`DROP TABLE attendance`);
+    db.run(`ALTER TABLE attendance_new RENAME TO attendance`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_attendance_session ON attendance(session_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_attendance_player ON attendance(player_id)`);
+}
+
 // A plain-text explainer dropped once into the backup folder itself, so
 // it's findable by anyone who stumbles onto Documents\GameScheduler\backups
 // without already knowing what this app is or where to get it again -
@@ -327,6 +366,6 @@ function get(db, sql, params = []) {
 
 module.exports = {
     DB_PATH, SCHEMA_PATH, BACKUP_DIR, openDb, applySchema, saveDb, all, get,
-    ensureBaselineDefaults, ensureColumns, markLegacyAdhocCategoriesSystem, backfillSportsVoucherMethod, zeroVoucherAmounts, closeStaleOpenSessions, backupToDocuments, listBackups,
+    ensureBaselineDefaults, ensureColumns, ensureAttendanceBookedState, markLegacyAdhocCategoriesSystem, backfillSportsVoucherMethod, zeroVoucherAmounts, closeStaleOpenSessions, backupToDocuments, listBackups,
     todayLocalDateStr,
 };

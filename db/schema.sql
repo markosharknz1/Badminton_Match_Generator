@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     session_id INTEGER NOT NULL REFERENCES sessions(id),
     player_id INTEGER NOT NULL REFERENCES players(id),
     checked_in_at TEXT NOT NULL DEFAULT (datetime('now')),
-    state TEXT NOT NULL CHECK (state IN ('checked_in','here_today','playing','left')) DEFAULT 'checked_in',
+    state TEXT NOT NULL CHECK (state IN ('checked_in','here_today','playing','booked','left')) DEFAULT 'checked_in',
     left_reason TEXT CHECK (left_reason IN ('no-show','departed','injured','session_ended','removed')),
     payment_category_id INTEGER REFERENCES payment_categories(id),
     payment_amount_cents INTEGER,

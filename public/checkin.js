@@ -10,6 +10,7 @@ let sessionPaymentRates = []; // this session's category prices [{payment_catego
 let paymentModalContext = null; // { attendanceId } while the payment modal is open
 let paymentTrackingEnabled = false; // club_settings.square_enabled - gates the whole payment feature
 let checkinModalPlayerId = null; // player id the check-in modal is currently open for
+let checkinModalAttendanceId = null; // set when converting an existing 'booked' row to arrived (vs. a brand-new check-in)
 
 function $(sel) { return document.querySelector(sel); }
 
@@ -308,7 +309,8 @@ async function loadAllPlayers() {
 async function refreshAttendance() {
     attendance = await api(`/api/sessions/${openSession.id}/attendance`);
     renderHereTable();
-    renderAvailableTable(); // re-filter in case a just-checked-in/removed player affects the pool
+    renderBookedTable();
+    renderAvailableTable(); // re-filter in case a just-checked-in/removed/booked player affects the pool
 }
 
 function alreadyPresentIds() {
@@ -329,18 +331,18 @@ function renderAvailableTable() {
     const tbody = $('#available-tbody');
     if (filtered.length === 0) {
         if (!queryLower) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="3" class="muted">Everyone is checked in.</td></tr>';
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="4" class="muted">Everyone is checked in.</td></tr>';
             return;
         }
         const matchesSomeoneAlreadyPresent = allPlayers.some(
             (p) => present.has(p.id) && `${p.first_name} ${p.last_name}`.toLowerCase().includes(queryLower)
         );
         if (matchesSomeoneAlreadyPresent) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="3" class="muted">Already checked in.</td></tr>';
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="4" class="muted">Already checked in.</td></tr>';
         } else {
             tbody.innerHTML = `
-                <tr class="empty-row"><td colspan="3" class="muted">No matching players.</td></tr>
-                <tr class="empty-row"><td colspan="3"><a class="textlink" data-action="add-new" data-query="${esc(query)}">+ Add "${esc(query)}" as a new player</a></td></tr>
+                <tr class="empty-row"><td colspan="4" class="muted">No matching players.</td></tr>
+                <tr class="empty-row"><td colspan="4"><a class="textlink" data-action="add-new" data-query="${esc(query)}">+ Add "${esc(query)}" as a new player</a></td></tr>
             `;
         }
         return;
@@ -353,6 +355,7 @@ function renderAvailableTable() {
                 <td>${p.first_name} ${p.last_name}</td>
                 <td>${skillBadge(p.skill_level)}</td>
                 <td class="muted">${p.membership_status}</td>
+                <td><a class="textlink" data-action="book" data-player-id="${p.id}">Book</a></td>
             </tr>
         `).join('');
 }
@@ -372,7 +375,7 @@ function paymentCellHtml(a) {
 }
 
 function renderHereTable() {
-    const present = attendance.filter((a) => a.state !== 'left');
+    const present = attendance.filter((a) => a.state !== 'left' && a.state !== 'booked');
     $('#here-count').textContent = present.length;
 
     const tbody = $('#here-tbody');
@@ -394,11 +397,43 @@ function renderHereTable() {
         `).join('');
 }
 
+function renderBookedTable() {
+    const booked = attendance.filter((a) => a.state === 'booked');
+    $('#booked-panel').style.display = booked.length ? '' : 'none';
+    $('#booked-count').textContent = booked.length;
+    if (!booked.length) return;
+    $('#booked-tbody').innerHTML = booked
+        .slice()
+        .sort((a, b) => a.last_name.localeCompare(b.last_name))
+        .map((a) => `
+            <tr data-attendance-id="${a.id}" data-player-id="${a.player_id}">
+                <td>${a.first_name} ${a.last_name}</td>
+                <td>${skillBadge(a.skill_level)}</td>
+                <td><a class="textlink" data-action="arrived">Arrived</a> <a class="textlink" data-action="unbook">Remove</a></td>
+            </tr>
+        `).join('');
+}
+
 async function checkInPlayer(playerId) {
     try {
         await api(`/api/sessions/${openSession.id}/attendance`, {
             method: 'POST',
             body: JSON.stringify({ player_id: playerId }),
+        });
+        await refreshAttendance();
+    } catch (err) {
+        showError(err.message);
+    }
+}
+
+// A lightweight pre-arrival reservation - no modal, no payment prompt,
+// just marks the player as expected tonight so staff aren't stuck choosing
+// between "not here yet" and forgetting who said they were coming.
+async function bookPlayer(playerId) {
+    try {
+        await api(`/api/sessions/${openSession.id}/attendance`, {
+            method: 'POST',
+            body: JSON.stringify({ player_id: playerId, state: 'booked' }),
         });
         await refreshAttendance();
     } catch (err) {
@@ -428,9 +463,13 @@ $('#available-tbody').addEventListener('dblclick', (e) => {
 });
 
 $('#available-tbody').addEventListener('click', (e) => {
-    const link = e.target.closest('a[data-action="add-new"]');
-    if (!link) return;
-    openAddPlayerForm(link.dataset.query);
+    const addLink = e.target.closest('a[data-action="add-new"]');
+    if (addLink) {
+        openAddPlayerForm(addLink.dataset.query);
+        return;
+    }
+    const bookLink = e.target.closest('a[data-action="book"]');
+    if (bookLink) bookPlayer(Number(bookLink.dataset.playerId));
 });
 
 function openAddPlayerForm(prefillFullName) {
@@ -475,10 +514,16 @@ async function applyLastPaymentCategoryDefault(playerId) {
 }
 
 // --- Check-in modal (double-click an available player) ---
-function openCheckinModal(playerId) {
+// attendanceId is optional - set it when converting an existing 'booked'
+// row to arrived (the "Arrived" action on the Booked table) instead of
+// creating a brand-new check-in. Same modal, same payment-collecting flow
+// either way - only how #cm-checkin ultimately saves differs (PUT the
+// existing row vs. POST a new one).
+function openCheckinModal(playerId, attendanceId = null) {
     const p = allPlayers.find((x) => x.id === playerId);
     if (!p) return;
     checkinModalPlayerId = playerId;
+    checkinModalAttendanceId = attendanceId;
     $('#cm-player-name').textContent = `${p.first_name} ${p.last_name}`;
     $('#cm-grade').value = p.skill_level;
     $('#cm-grade-saved').style.display = 'none';
@@ -568,6 +613,7 @@ $('#cm-gender-quick').addEventListener('change', async () => {
 function closeCheckinModal() {
     $('#checkin-modal-backdrop').style.display = 'none';
     checkinModalPlayerId = null;
+    checkinModalAttendanceId = null;
 }
 
 function updateCheckinHint() {
@@ -724,15 +770,21 @@ $('#cm-checkin').addEventListener('click', async () => {
         patch.new_member = true;
     }
 
+    // Check-in and payment are ONE atomic write, not a create-then-patch
+    // pair sharing one try/catch - a failure here means nothing was saved
+    // at all, never a checked-in player left with blank/wrong payment info.
+    // Converting an existing 'booked' row (they've now arrived) reuses the
+    // exact same payload via PUT instead of POST.
     try {
-        const newAttendance = await api(`/api/sessions/${openSession.id}/attendance`, {
-            method: 'POST',
-            body: JSON.stringify({ player_id: playerId }),
-        });
-        if (Object.keys(patch).length > 0) {
-            await api(`/api/attendance/${newAttendance.id}`, {
+        if (checkinModalAttendanceId) {
+            await api(`/api/attendance/${checkinModalAttendanceId}`, {
                 method: 'PUT',
-                body: JSON.stringify(patch),
+                body: JSON.stringify({ ...patch, state: 'here_today' }),
+            });
+        } else {
+            await api(`/api/sessions/${openSession.id}/attendance`, {
+                method: 'POST',
+                body: JSON.stringify({ ...patch, player_id: playerId }),
             });
         }
         closeCheckinModal();
@@ -755,6 +807,18 @@ $('#here-tbody').addEventListener('click', (e) => {
     if (!cell) return;
     const tr = cell.closest('tr[data-attendance-id]');
     openPaymentModal(Number(tr.dataset.attendanceId));
+});
+
+$('#booked-tbody').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-attendance-id]');
+    if (!tr) return;
+    const attendanceId = Number(tr.dataset.attendanceId);
+    const playerId = Number(tr.dataset.playerId);
+    if (e.target.closest('a[data-action="arrived"]')) {
+        openCheckinModal(playerId, attendanceId);
+    } else if (e.target.closest('a[data-action="unbook"]')) {
+        removeFromToday(attendanceId, playerId);
+    }
 });
 
 // --- Payment recording ---
