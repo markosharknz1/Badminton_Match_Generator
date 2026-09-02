@@ -342,6 +342,11 @@ a.textlink {
     font-size: 0.9rem;
 }
 
+/* Multiple text-link actions in one table cell (e.g. "Arrived"/"Remove")
+   need real spacing between them - a bare space in the markup collapses
+   too tight to comfortably click one without the other. */
+.table-actions { display: flex; gap: 16px; }
+
 nav.app-nav {
     display: flex;
     gap: 4px;

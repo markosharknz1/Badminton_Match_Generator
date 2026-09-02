@@ -714,16 +714,33 @@ async function saveCourt(courtId) {
     ];
     const payload = { court_id: courtId, round_number: buildRound, format: st.draft.format, players };
     try {
-        if (st.staged) {
-            await api(`/api/games/${st.staged.gameId}`, { method: 'PUT', body: JSON.stringify(payload) });
-        } else {
-            await api(`/api/sessions/${openSession.id}/games`, { method: 'POST', body: JSON.stringify(payload) });
-        }
-        // A successful save always ends editing - otherwise mergeBuilderState
-        // (correctly) treats a still-"editing" court as an in-progress edit
-        // that must survive the refresh, and the court gets stuck showing
-        // Save/Cancel forever even though the save actually went through.
-        st.editing = false;
+        const saved = st.staged
+            ? await api(`/api/games/${st.staged.gameId}`, { method: 'PUT', body: JSON.stringify(payload) })
+            : await api(`/api/sessions/${openSession.id}/games`, { method: 'POST', body: JSON.stringify(payload) });
+
+        // Apply THIS court's own save result straight to buildState/the DOM,
+        // immediately and unconditionally - never dependent on winning the
+        // loadBuilderForRound race below. That race (own explicit reload vs.
+        // the SSE 'game' broadcast this very save just triggered, which
+        // echoes back to this same tab) is real: whichever call is issued
+        // LAST wins and the other is discarded (see loadBuilderForRound's
+        // builderRequestSeq guard) - if this save's own explicit reload
+        // loses that race, its promise still resolves before the winning
+        // (SSE-triggered) one finishes, so without this direct update the
+        // court that WAS just saved could sit showing stale "unsaved draft"
+        // for a beat, or - if a well-timed run of further saves on OTHER
+        // courts keeps superseding it - indefinitely. This makes "the court
+        // you clicked Save on shows saved" true the instant the request
+        // completes, no reload required.
+        const side1 = saved.players.filter((p) => p.side === 1).map((p) => p.player_id);
+        const side2 = saved.players.filter((p) => p.side === 2).map((p) => p.player_id);
+        buildState[courtId] = {
+            staged: { gameId: saved.id, format: saved.format, side1, side2 },
+            draft: { format: saved.format, side1: [...side1], side2: [...side2] },
+            editing: false,
+        };
+        renderBuilder();
+
         showError('');
         await loadRoundStatus();
         await loadBuilderForRound(buildRound);

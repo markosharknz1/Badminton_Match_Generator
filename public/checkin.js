@@ -415,7 +415,7 @@ function renderBookedTable() {
             <tr data-attendance-id="${a.id}" data-player-id="${a.player_id}">
                 <td>${a.first_name} ${a.last_name}</td>
                 <td>${skillBadge(a.skill_level)}</td>
-                <td><a class="textlink" data-action="arrived">Arrived</a> <a class="textlink" data-action="unbook">Remove</a></td>
+                <td class="table-actions"><a class="textlink" data-action="arrived">Arrived</a><a class="textlink" data-action="unbook">Remove</a></td>
             </tr>
         `).join('');
 }
