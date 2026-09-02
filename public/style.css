@@ -344,8 +344,11 @@ a.textlink {
 
 /* Multiple text-link actions in one table cell (e.g. "Arrived"/"Remove")
    need real spacing between them - a bare space in the markup collapses
-   too tight to comfortably click one without the other. */
-.table-actions { display: flex; gap: 16px; }
+   too tight to comfortably click one without the other. Extra vertical
+   padding too (beyond the roster table's normal tight row padding) - a
+   whole stack of these back to back reads as one dense wall of clickable
+   text otherwise, easy to miss-tap the wrong row's action. */
+.table-actions { display: flex; gap: 32px; padding-top: 14px; padding-bottom: 14px; }
 
 nav.app-nav {
     display: flex;
