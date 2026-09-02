@@ -36,8 +36,16 @@ const TONIGHT_METHODS = ['Cash', 'Card', 'Voucher'];
 function tonightSummaryHtml(data, title) {
     if (!data) return '<p class="muted">No sessions yet.</p>';
     const categories = data.payment_breakdown;
+    // Total, checked in, and booked as three explicit labeled numbers - a
+    // bare "N players" headline didn't add up against the table below it
+    // once a booked-but-not-arrived player (counted in the total, but not
+    // physically here) was in the mix.
     const headlineText = `
-        <strong>${data.unique_players}</strong> player${data.unique_players === 1 ? '' : 's'}
+        <strong>${data.total}</strong> total
+        <span class="tonight-headline-sep muted">&middot;</span>
+        <strong>${data.checked_in}</strong> checked in
+        <span class="tonight-headline-sep muted">&middot;</span>
+        <strong>${data.booked}</strong> booked
         <span class="muted"> - ${tonightSummaryEsc(data.session.label || 'Session')} (${tonightSummaryEsc(formatDate(data.session.date))})</span>
     `;
     const headline = title

@@ -1,7 +1,7 @@
 const express = require('express');
 const store = require('../db/store');
 const { broadcast } = require('../lib/eventBus');
-const { paymentBreakdown, uniquePlayerCount } = require('../lib/sessionReport');
+const { paymentBreakdown, uniquePlayerCount, attendanceCounts } = require('../lib/sessionReport');
 const { sendEmail, parseRecipientList } = require('../lib/sendEmail');
 const { buildSessionSummaryEmail } = require('../lib/sessionSummaryEmail');
 
@@ -61,7 +61,7 @@ router.get('/:id/payment-summary', (req, res) => {
     const session = store.queryOne(`SELECT id, date, label, notes FROM sessions WHERE id = ?`, [req.params.id]);
     if (!session) return res.status(404).json({ error: 'Session not found' });
     const db = store.getDb();
-    res.json({ session, unique_players: uniquePlayerCount(db, session.id), ...paymentBreakdown(db, session.id) });
+    res.json({ session, unique_players: uniquePlayerCount(db, session.id), ...attendanceCounts(db, session.id), ...paymentBreakdown(db, session.id) });
 });
 
 // Manual only - staff review the summary, then click Send. Never triggered
