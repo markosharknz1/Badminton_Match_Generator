@@ -18,6 +18,7 @@
   "dependencies": {
     "exceljs": "4.4.0",
     "express": "5.2.1",
+    "nodemailer": "9.1.1",
     "sql.js": "1.14.1"
   }
 }

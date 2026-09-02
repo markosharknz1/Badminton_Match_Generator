@@ -376,7 +376,13 @@ function paymentCellHtml(a) {
 
 function renderHereTable() {
     const present = attendance.filter((a) => a.state !== 'left' && a.state !== 'booked');
-    $('#here-count').textContent = present.length;
+    // The table itself only ever lists who's physically here (present.length
+    // rows) - but a booked player is a real commitment for tonight, so the
+    // headline count they're watching all night counts them too, called out
+    // explicitly rather than silently folded into one number so it still
+    // matches the row count at a glance.
+    const bookedCount = attendance.filter((a) => a.state === 'booked').length;
+    $('#here-count').textContent = bookedCount > 0 ? `${present.length} (+${bookedCount} booked)` : String(present.length);
 
     const tbody = $('#here-tbody');
     const colspan = paymentTrackingEnabled ? 4 : 3;

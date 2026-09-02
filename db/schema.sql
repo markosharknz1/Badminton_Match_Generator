@@ -159,14 +159,25 @@ CREATE TABLE IF NOT EXISTS club_settings (
     default_break_minutes INTEGER NOT NULL DEFAULT 3,
     max_capacity INTEGER,
     square_enabled INTEGER NOT NULL DEFAULT 0 CHECK (square_enabled IN (0,1)),
-    -- SMTP2Go (HTTP API email service - see lib/sendEmail.js) sends the
-    -- manual end-of-night summary email (routes/sessions.js's send-summary-
-    -- email). Square credentials below are still unused - saved only.
+    -- Which provider's credentials below are actually used to send the
+    -- manual end-of-night summary email (see lib/sendEmail.js). Only one
+    -- provider is active at a time - a club picks whichever they already
+    -- have an account with.
+    email_provider TEXT NOT NULL DEFAULT 'smtp2go' CHECK (email_provider IN ('smtp2go','mailgun','gmail')),
     smtp2go_api_key TEXT,
     smtp2go_sender_email TEXT,
     smtp2go_sender_name TEXT,
+    mailgun_api_key TEXT,
+    mailgun_domain TEXT,
+    mailgun_sender_email TEXT,
+    mailgun_sender_name TEXT,
+    -- Gmail sends via SMTP with a Google "App Password" (not the account's
+    -- real login password) - the account itself IS the sender, Gmail
+    -- doesn't let you send as an arbitrary "from" address.
+    gmail_user TEXT,
+    gmail_app_password TEXT,
     -- Comma/newline-separated list - one club-wide list reused every
-    -- session, not per-session config.
+    -- session and by every provider, not per-session/per-provider config.
     summary_recipient_emails TEXT,
     square_access_token TEXT,
     square_location_id TEXT,

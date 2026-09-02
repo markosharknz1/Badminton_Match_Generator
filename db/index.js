@@ -193,12 +193,19 @@ function ensureColumns(db) {
     const clubSettingsCols = all(db, `PRAGMA table_info(club_settings)`).map((c) => c.name);
     const newClubSettingsCols = [
         'smtp2go_api_key', 'smtp2go_sender_email', 'smtp2go_sender_name', 'summary_recipient_emails',
+        'mailgun_api_key', 'mailgun_domain', 'mailgun_sender_email', 'mailgun_sender_name',
+        'gmail_user', 'gmail_app_password',
         'square_access_token', 'square_location_id',
     ];
     for (const col of newClubSettingsCols) {
         if (!clubSettingsCols.includes(col)) {
             db.run(`ALTER TABLE club_settings ADD COLUMN ${col} TEXT`);
         }
+    }
+    if (!clubSettingsCols.includes('email_provider')) {
+        // Which of smtp2go/mailgun/gmail's credentials above are actually
+        // used to send the end-of-night summary (see lib/sendEmail.js).
+        db.run(`ALTER TABLE club_settings ADD COLUMN email_provider TEXT NOT NULL DEFAULT 'smtp2go' CHECK (email_provider IN ('smtp2go','mailgun','gmail'))`);
     }
     if (!clubSettingsCols.includes('gender_aware_pairing')) {
         // On by default - auto-generate prefers mixed pairs / same-gender

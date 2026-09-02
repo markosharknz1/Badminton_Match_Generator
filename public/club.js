@@ -79,10 +79,18 @@ async function loadSettings() {
     $('#cs-square').checked = !!s.square_enabled;
     $('#cs-gender-aware').checked = !!s.gender_aware_pairing;
     $('#icon-preview').src = `/api/branding/icon?v=${s.club_icon_ver || 0}`;
-    $('#email-api-key').value = s.smtp2go_api_key || '';
-    $('#email-sender-address').value = s.smtp2go_sender_email || '';
-    $('#email-sender-name').value = s.smtp2go_sender_name || '';
+    $('#email-provider').value = s.email_provider || 'smtp2go';
+    $('#email-smtp2go-api-key').value = s.smtp2go_api_key || '';
+    $('#email-smtp2go-sender-address').value = s.smtp2go_sender_email || '';
+    $('#email-smtp2go-sender-name').value = s.smtp2go_sender_name || '';
+    $('#email-mailgun-api-key').value = s.mailgun_api_key || '';
+    $('#email-mailgun-domain').value = s.mailgun_domain || '';
+    $('#email-mailgun-sender-address').value = s.mailgun_sender_email || '';
+    $('#email-mailgun-sender-name').value = s.mailgun_sender_name || '';
+    $('#email-gmail-user').value = s.gmail_user || '';
+    $('#email-gmail-app-password').value = s.gmail_app_password || '';
     $('#email-recipients').value = s.summary_recipient_emails || '';
+    showProviderFields($('#email-provider').value);
     $('#payments-access-token').value = s.square_access_token || '';
     $('#payments-location-id').value = s.square_location_id || '';
 }
@@ -160,15 +168,30 @@ $('#icon-file').addEventListener('change', async () => {
     }
 });
 
-// --- Email (SMTP2Go - sends the manual end-of-night summary) ---
+// --- Email (SMTP2Go / Mailgun / Gmail - sends the manual end-of-night summary) ---
+function showProviderFields(provider) {
+    document.querySelectorAll('[data-provider-group]').forEach((el) => {
+        el.style.display = el.dataset.providerGroup === provider ? '' : 'none';
+    });
+}
+
+$('#email-provider').addEventListener('change', () => showProviderFields($('#email-provider').value));
+
 $('#email-save').addEventListener('click', async () => {
     try {
         await api('/api/club-settings', {
             method: 'PUT',
             body: JSON.stringify({
-                smtp2go_api_key: $('#email-api-key').value.trim() || null,
-                smtp2go_sender_email: $('#email-sender-address').value.trim() || null,
-                smtp2go_sender_name: $('#email-sender-name').value.trim() || null,
+                email_provider: $('#email-provider').value,
+                smtp2go_api_key: $('#email-smtp2go-api-key').value.trim() || null,
+                smtp2go_sender_email: $('#email-smtp2go-sender-address').value.trim() || null,
+                smtp2go_sender_name: $('#email-smtp2go-sender-name').value.trim() || null,
+                mailgun_api_key: $('#email-mailgun-api-key').value.trim() || null,
+                mailgun_domain: $('#email-mailgun-domain').value.trim() || null,
+                mailgun_sender_email: $('#email-mailgun-sender-address').value.trim() || null,
+                mailgun_sender_name: $('#email-mailgun-sender-name').value.trim() || null,
+                gmail_user: $('#email-gmail-user').value.trim() || null,
+                gmail_app_password: $('#email-gmail-app-password').value.trim() || null,
                 summary_recipient_emails: $('#email-recipients').value.trim() || null,
             }),
         });

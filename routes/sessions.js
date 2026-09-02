@@ -78,12 +78,7 @@ router.post('/:id/send-summary-email', async (req, res) => {
 
     try {
         const { subject, htmlBody, textBody } = buildSessionSummaryEmail(store.getDb(), session);
-        const result = await sendEmail({
-            apiKey: club.smtp2go_api_key,
-            senderEmail: club.smtp2go_sender_email,
-            senderName: club.smtp2go_sender_name,
-            to, subject, htmlBody, textBody,
-        });
+        const result = await sendEmail(club, { to, subject, htmlBody, textBody });
         res.json({ sent_to: to, ...result });
     } catch (err) {
         res.status(400).json({ error: err.message });
