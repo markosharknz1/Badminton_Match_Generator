@@ -20,9 +20,13 @@ function gameWithPlayers(gameId) {
 }
 
 // Validates a proposed lineup against the schema rules and current session
-// state. excludeGameId lets an edit (PUT) validate against everyone else
-// without tripping over its own existing rows.
-function validateLineup({ sessionId, courtId, roundNumber, format, players, excludeGameId }) {
+// state. excludeGameIds lets an edit (PUT), or a batch of several courts
+// saved together, validate against everyone else without tripping over
+// its own (or the rest of the batch's) existing rows - a court/player
+// genuinely being moved between two games in the SAME save isn't a real
+// conflict, it just looks like one if the game(s) it's moving out of
+// aren't excluded too.
+function validateLineup({ sessionId, courtId, roundNumber, format, players, excludeGameIds = [] }) {
     const errors = [];
 
     if (!FORMAT_SIZES[format]) {
@@ -64,12 +68,14 @@ function validateLineup({ sessionId, courtId, roundNumber, format, players, excl
     );
     if (!courtInSession) errors.push('court_id is not an in-use court for this session');
 
+    const excludeClause = excludeGameIds.length ? `AND id NOT IN (${excludeGameIds.map(() => '?').join(',')})` : '';
     const courtTaken = store.queryOne(
-        `SELECT id FROM games WHERE session_id = ? AND court_id = ? AND round_number = ? AND status IN ('staged','active') ${excludeGameId ? 'AND id != ?' : ''}`,
-        excludeGameId ? [sessionId, courtId, roundNumber, excludeGameId] : [sessionId, courtId, roundNumber]
+        `SELECT id FROM games WHERE session_id = ? AND court_id = ? AND round_number = ? AND status IN ('staged','active') ${excludeClause}`,
+        [sessionId, courtId, roundNumber, ...excludeGameIds]
     );
     if (courtTaken) errors.push('a game is already staged/active on this court for this round');
 
+    const doubleBookedExcludeClause = excludeGameIds.length ? `AND g.id NOT IN (${excludeGameIds.map(() => '?').join(',')})` : '';
     for (const playerId of playerIds) {
         const attendance = store.queryOne(
             `SELECT * FROM attendance WHERE session_id = ? AND player_id = ? AND state != 'left' ORDER BY id DESC LIMIT 1`,
@@ -81,9 +87,8 @@ function validateLineup({ sessionId, courtId, roundNumber, format, players, excl
         }
         const doubleBooked = store.queryOne(
             `SELECT g.id FROM games g JOIN game_players gp ON gp.game_id = g.id
-             WHERE g.session_id = ? AND g.round_number = ? AND g.status IN ('staged','active') AND gp.player_id = ?
-             ${excludeGameId ? 'AND g.id != ?' : ''}`,
-            excludeGameId ? [sessionId, roundNumber, playerId, excludeGameId] : [sessionId, roundNumber, playerId]
+             WHERE g.session_id = ? AND g.round_number = ? AND g.status IN ('staged','active') AND gp.player_id = ? ${doubleBookedExcludeClause}`,
+            [sessionId, roundNumber, playerId, ...excludeGameIds]
         );
         if (doubleBooked) errors.push(`player ${playerId} is already assigned to another game in round ${roundNumber}`);
     }
@@ -135,10 +140,14 @@ router.post('/sessions/:sessionId/games', (req, res) => {
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
     const { court_id, round_number, format, players } = req.body;
-    const errors = validateLineup({ sessionId, courtId: court_id, roundNumber: round_number, format, players: players || [] });
-    if (errors.length) return res.status(400).json({ errors });
-
+    // validateLineup runs real queries with these fields as bind params - a
+    // malformed/missing field (e.g. no round_number) can throw there rather
+    // than cleanly failing validation, so it's inside the same try/catch as
+    // the write, not called separately above it.
     try {
+        const errors = validateLineup({ sessionId, courtId: court_id, roundNumber: round_number, format, players: players || [] });
+        if (errors.length) return res.status(400).json({ errors });
+
         const gameId = insertGame({ sessionId, courtId: court_id, roundNumber: round_number, format, players });
         store.persist();
         broadcast('game', { session_id: sessionId });
@@ -159,17 +168,17 @@ router.put('/games/:id', (req, res) => {
     const players = req.body.players;
     if (!Array.isArray(players)) return res.status(400).json({ error: 'players is required' });
 
-    const errors = validateLineup({
-        sessionId: existing.session_id,
-        courtId: court_id,
-        roundNumber: round_number,
-        format,
-        players,
-        excludeGameId: existing.id,
-    });
-    if (errors.length) return res.status(400).json({ errors });
-
     try {
+        const errors = validateLineup({
+            sessionId: existing.session_id,
+            courtId: court_id,
+            roundNumber: round_number,
+            format,
+            players,
+            excludeGameIds: [existing.id],
+        });
+        if (errors.length) return res.status(400).json({ errors });
+
         store.run('UPDATE games SET court_id=?, round_number=?, format=? WHERE id=?', [court_id, round_number, format, existing.id]);
         store.run('DELETE FROM game_players WHERE game_id = ?', [existing.id]);
         for (const p of players) {
@@ -182,6 +191,96 @@ router.put('/games/:id', (req, res) => {
         store.persist();
         broadcast('game', { session_id: existing.session_id });
         res.json(gameWithPlayers(existing.id));
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Saves several courts' lineups in one request, validated and applied
+// together - what a single-court PUT/POST can't do safely on its own.
+// Dragging a player from one currently-being-edited court to another (both
+// still unsaved server-side) used to make BOTH saves fail: saving either
+// court one at a time checked the new lineup against the OTHER court's
+// still-unchanged server-side game, which correctly-but-unhelpfully still
+// held that player - "player X is already assigned to another game in
+// round N", for a court that was only ever local, unsaved state. Here,
+// every game_id already in this batch is excluded from every court's own
+// conflict checks (see validateLineup's excludeGameIds), since the whole
+// batch is replacing itself as one unit - a player moving between two
+// courts in the SAME save is never a real conflict, only a transient one
+// against data this very request is about to overwrite anyway.
+router.put('/sessions/:sessionId/games/batch', (req, res) => {
+    const sessionId = Number(req.params.sessionId);
+    const session = store.queryOne('SELECT * FROM sessions WHERE id = ?', [sessionId]);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    const { round_number, courts } = req.body;
+    if (!Array.isArray(courts) || courts.length === 0) return res.status(400).json({ error: 'courts array is required' });
+
+    // Everything below - the pre-checks and validateLineup included - runs
+    // real queries against caller-supplied fields, so it's all inside one
+    // try/catch: a malformed request should come back as a clean error, not
+    // an uncaught exception (validateLineup previously ran outside any
+    // try/catch in the single-court routes too - same fix applied there).
+    try {
+        // A court in the batch that references an existing game must
+        // actually be a staged game belonging to this session - same rule
+        // PUT /games/:id already enforces one at a time.
+        for (const c of courts) {
+            if (c.game_id) {
+                const existing = store.queryOne('SELECT * FROM games WHERE id = ?', [c.game_id]);
+                if (!existing) return res.status(404).json({ error: `Game ${c.game_id} not found` });
+                if (existing.session_id !== sessionId) return res.status(400).json({ error: `Game ${c.game_id} does not belong to this session` });
+                if (existing.status !== 'staged') return res.status(409).json({ error: `Only staged games can be edited (game ${c.game_id})` });
+            }
+        }
+
+        // Within-batch duplicate check: two courts in the same batch
+        // claiming the same player isn't something a single court's own
+        // validateLineup call can ever catch, since it only ever sees one
+        // court's players.
+        const claimedBy = new Map(); // player_id -> court_id
+        const batchErrors = [];
+        for (const c of courts) {
+            for (const p of (c.players || [])) {
+                if (claimedBy.has(p.player_id)) {
+                    batchErrors.push(`player ${p.player_id} is assigned to both court ${claimedBy.get(p.player_id)} and court ${c.court_id} in this save`);
+                } else {
+                    claimedBy.set(p.player_id, c.court_id);
+                }
+            }
+        }
+        if (batchErrors.length) return res.status(400).json({ errors: batchErrors });
+
+        const excludeGameIds = courts.map((c) => c.game_id).filter(Boolean);
+        const allErrors = [];
+        for (const c of courts) {
+            const errors = validateLineup({
+                sessionId, courtId: c.court_id, roundNumber: round_number, format: c.format,
+                players: c.players || [], excludeGameIds,
+            });
+            allErrors.push(...errors.map((e) => `Court ${c.court_id}: ${e}`));
+        }
+        if (allErrors.length) return res.status(400).json({ errors: allErrors });
+
+        // sql.js is fully synchronous - either every court below applies and
+        // store.persist() runs, or an unexpected error throws first and
+        // NOTHING in this batch has been written to disk yet.
+        const savedGameIds = courts.map((c) => {
+            if (c.game_id) {
+                store.run('UPDATE games SET court_id=?, round_number=?, format=? WHERE id=?', [c.court_id, round_number, c.format, c.game_id]);
+                store.run('DELETE FROM game_players WHERE game_id = ?', [c.game_id]);
+                for (const p of (c.players || [])) {
+                    const player = store.queryOne('SELECT skill_level FROM players WHERE id = ?', [p.player_id]);
+                    store.run('INSERT INTO game_players (game_id, player_id, side, skill_level_at_time) VALUES (?, ?, ?, ?)', [c.game_id, p.player_id, p.side, player.skill_level]);
+                }
+                return c.game_id;
+            }
+            return insertGame({ sessionId, courtId: c.court_id, roundNumber: round_number, format: c.format, players: c.players || [] });
+        });
+        store.persist();
+        broadcast('game', { session_id: sessionId });
+        res.json(savedGameIds.map(gameWithPlayers));
     } catch (err) {
         res.status(400).json({ error: err.message });
     }

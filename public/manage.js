@@ -706,41 +706,98 @@ async function unstageCourt(courtId) {
     }
 }
 
-async function saveCourt(courtId) {
+// Finds every OTHER court that must be saved in the SAME request as
+// courtId for courtId's own save to be valid: a court whose server-side
+// staged game still holds a player courtId's draft now wants, where that
+// other court's own local draft has already moved them out (a drag
+// between two courts both currently being edited, neither saved yet).
+// Saving courtId alone in that situation used to fail outright - the
+// server correctly saw the player still assigned to the OTHER court's
+// unchanged game and rejected it as a double-booking, even though that
+// "conflict" was only ever local, unsaved state. Iterates to a fixed
+// point so a genuine swap or a longer A->B->C->A chain resolves in one
+// go, not just a single adjacent pair.
+function findCourtsToSaveTogether(courtId) {
+    const included = new Set([courtId]);
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const idStr of Object.keys(buildState)) {
+            const id = Number(idStr);
+            if (included.has(id)) continue;
+            const other = buildState[id];
+            if (!other.staged) continue; // nothing persisted server-side to conflict with
+            const otherStagedIds = new Set([...other.staged.side1, ...other.staged.side2]);
+            const otherDraftIds = new Set([...other.draft.side1, ...other.draft.side2]);
+            const releasesSomethingNeeded = [...included].some((incId) => {
+                const incDraftIds = [...buildState[incId].draft.side1, ...buildState[incId].draft.side2];
+                return incDraftIds.some((pid) => otherStagedIds.has(pid) && !otherDraftIds.has(pid));
+            });
+            if (releasesSomethingNeeded) {
+                included.add(id);
+                changed = true;
+            }
+        }
+    }
+    included.delete(courtId);
+    return [...included];
+}
+
+// round_number is needed by BOTH the single-court PUT/POST routes (which
+// read it directly off this payload) and, redundantly but harmlessly, by
+// each entry in a batch save (the batch route only actually reads its own
+// top-level round_number - see saveCourt below).
+function courtPayload(courtId) {
     const st = buildState[courtId];
     const players = [
         ...st.draft.side1.map((id) => ({ player_id: id, side: 1 })),
         ...st.draft.side2.map((id) => ({ player_id: id, side: 2 })),
     ];
-    const payload = { court_id: courtId, round_number: buildRound, format: st.draft.format, players };
+    return { court_id: courtId, game_id: st.staged ? st.staged.gameId : null, round_number: buildRound, format: st.draft.format, players };
+}
+
+// Applies a saved game's server response straight to buildState/the DOM,
+// immediately and unconditionally - never dependent on winning the
+// loadBuilderForRound race that follows. That race (a save's own explicit
+// reload vs. the SSE 'game' broadcast this very save just triggered, which
+// echoes back to this same tab) is real: whichever call is issued LAST
+// wins and the other is discarded (see loadBuilderForRound's
+// builderRequestSeq guard) - if a save's own explicit reload loses that
+// race, its promise still resolves before the winning (SSE-triggered) one
+// finishes, so without this direct update the court that WAS just saved
+// could sit showing stale "unsaved draft" for a beat, or - under a run of
+// further saves on other courts - indefinitely. This makes "the court(s)
+// you just saved show saved" true the instant the request completes.
+function applySavedGame(game) {
+    const side1 = game.players.filter((p) => p.side === 1).map((p) => p.player_id);
+    const side2 = game.players.filter((p) => p.side === 2).map((p) => p.player_id);
+    buildState[game.court_id] = {
+        staged: { gameId: game.id, format: game.format, side1, side2 },
+        draft: { format: game.format, side1: [...side1], side2: [...side2] },
+        editing: false,
+    };
+}
+
+async function saveCourt(courtId) {
+    const others = findCourtsToSaveTogether(courtId);
     try {
-        const saved = st.staged
-            ? await api(`/api/games/${st.staged.gameId}`, { method: 'PUT', body: JSON.stringify(payload) })
-            : await api(`/api/sessions/${openSession.id}/games`, { method: 'POST', body: JSON.stringify(payload) });
-
-        // Apply THIS court's own save result straight to buildState/the DOM,
-        // immediately and unconditionally - never dependent on winning the
-        // loadBuilderForRound race below. That race (own explicit reload vs.
-        // the SSE 'game' broadcast this very save just triggered, which
-        // echoes back to this same tab) is real: whichever call is issued
-        // LAST wins and the other is discarded (see loadBuilderForRound's
-        // builderRequestSeq guard) - if this save's own explicit reload
-        // loses that race, its promise still resolves before the winning
-        // (SSE-triggered) one finishes, so without this direct update the
-        // court that WAS just saved could sit showing stale "unsaved draft"
-        // for a beat, or - if a well-timed run of further saves on OTHER
-        // courts keeps superseding it - indefinitely. This makes "the court
-        // you clicked Save on shows saved" true the instant the request
-        // completes, no reload required.
-        const side1 = saved.players.filter((p) => p.side === 1).map((p) => p.player_id);
-        const side2 = saved.players.filter((p) => p.side === 2).map((p) => p.player_id);
-        buildState[courtId] = {
-            staged: { gameId: saved.id, format: saved.format, side1, side2 },
-            draft: { format: saved.format, side1: [...side1], side2: [...side2] },
-            editing: false,
-        };
+        if (others.length > 0) {
+            // A cross-court move needs the whole affected set saved together
+            // in one request - see routes/games.js's PUT .../games/batch.
+            const courtIds = [courtId, ...others];
+            const saved = await api(`/api/sessions/${openSession.id}/games/batch`, {
+                method: 'PUT',
+                body: JSON.stringify({ round_number: buildRound, courts: courtIds.map(courtPayload) }),
+            });
+            saved.forEach(applySavedGame);
+        } else {
+            const st = buildState[courtId];
+            const saved = st.staged
+                ? await api(`/api/games/${st.staged.gameId}`, { method: 'PUT', body: JSON.stringify(courtPayload(courtId)) })
+                : await api(`/api/sessions/${openSession.id}/games`, { method: 'POST', body: JSON.stringify(courtPayload(courtId)) });
+            applySavedGame(saved);
+        }
         renderBuilder();
-
         showError('');
         await loadRoundStatus();
         await loadBuilderForRound(buildRound);
