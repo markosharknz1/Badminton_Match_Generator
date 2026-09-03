@@ -415,6 +415,31 @@ nav.app-nav a.active {
     gap: 6px;
 }
 
+/* Auto mode's next round gets built ahead of time while the current one
+   is still playing, entirely out of players' sight (the external Display
+   never shows it early) - this callout is what actually makes staff aware
+   it exists and needs a look, since otherwise nothing on screen changes
+   until the round they're currently watching actually ends. */
+.next-round-callout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+@keyframes build-round-flash {
+    0%, 100% { box-shadow: none; }
+    20%, 60% { box-shadow: 0 0 0 3px var(--primary); }
+}
+
+.build-round-flash { animation: build-round-flash 1.6s ease-in-out; }
+
 .round-stepper button {
     padding: 6px 10px;
 }

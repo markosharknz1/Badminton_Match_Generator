@@ -87,6 +87,10 @@
                 <button id="pause-resume-btn" style="display:none;"></button>
                 <button id="view-rounds-btn">View rounds played</button>
             </div>
+            <div class="next-round-callout" id="next-round-callout" style="display:none;">
+                <span id="next-round-callout-text"></span>
+                <button class="small primary" id="next-round-review-btn">Review / Edit</button>
+            </div>
         </div>
 
         <div class="panel" id="active-games-panel" style="display:none;">
@@ -101,7 +105,7 @@
             <div class="active-games-grid" id="active-games-grid"></div>
         </div>
 
-        <div class="panel">
+        <div class="panel" id="build-round-panel">
             <div class="builder-header">
                 <h2>
                     Build round

@@ -305,7 +305,41 @@ function renderRoundControls() {
         btn.onclick = () => runRoundAction(() => api(`/api/sessions/${openSession.id}/rounds/start-next`, { method: 'POST' }));
         pauseBtn.style.display = 'none';
     }
+
+    updateNextRoundCallout();
 }
+
+// Auto mode pre-generates the next round a few minutes before the current
+// one ends (see lib/roundLifecycle.js's PRE_GENERATE_WINDOW_MS), entirely
+// out of players' sight - the external Display never shows a staged round
+// until current_phase actually leaves 'game'. Without this callout,
+// nothing on the Rounds page would tell staff it's ready to look at either
+// - the Build Round panel below already shows/allows editing it (the
+// designer always targets next_round_number, regardless of phase), staff
+// just have no reason to scroll down and check while the current round's
+// countdown is what's holding their attention. Only shown for exactly
+// that "generated ahead, current round still live" situation - once the
+// round actually ends, the normal staged-round text in the idle/awaiting-
+// lineup branch above takes over.
+function updateNextRoundCallout() {
+    const callout = $('#next-round-callout');
+    const showIt = roundStatus.current_phase === 'game' && roundStatus.mode === 'auto' && roundStatus.staged_next_count > 0;
+    callout.style.display = showIt ? '' : 'none';
+    if (!showIt) return;
+    const n = roundStatus.staged_next_count;
+    $('#next-round-callout-text').textContent = `Round ${roundStatus.next_round_number} has been auto-generated (${n} court${n === 1 ? '' : 's'}) - review before it goes live.`;
+}
+
+$('#next-round-review-btn').addEventListener('click', () => {
+    const panel = $('#build-round-panel');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    panel.classList.remove('build-round-flash');
+    // Restart the flash animation even if it's already mid-run from a
+    // previous click - forces a reflow so removing/re-adding the class
+    // actually retriggers the CSS animation instead of being a no-op.
+    void panel.offsetWidth;
+    panel.classList.add('build-round-flash');
+});
 
 function showPauseButton(label) {
     const pauseBtn = $('#pause-resume-btn');
