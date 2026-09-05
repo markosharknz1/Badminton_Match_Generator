@@ -448,13 +448,25 @@ async function bookPlayer(playerId) {
 }
 
 async function removeFromToday(attendanceId, playerId) {
-    const a = attendance.find((x) => x.player_id === playerId);
+    // Match on the specific attendance row id, not player_id - a player can
+    // have more than one row in the same session (e.g. removed earlier,
+    // then re-booked), and attendance isn't filtered by state, so matching
+    // by player_id alone can silently grab a stale row and read its old
+    // state instead of the one actually being removed right now.
+    const a = attendance.find((x) => x.id === attendanceId);
     const name = a ? `${a.first_name} ${a.last_name}` : 'this player';
-    if (!confirm(`Remove ${name} from today?`)) return;
+    // A booked player who's removed never actually arrived - that's a
+    // cancelled booking (no-show), not someone leaving the night early, so
+    // it shouldn't count toward tonight's totals the way an arrived-then-
+    // removed player does. Picking the reason off their current state (not
+    // hardcoding 'removed') is what keeps attendanceCounts()'s total honest.
+    const wasBooked = a && a.state === 'booked';
+    const message = wasBooked ? `Cancel ${name}'s booking for today?` : `Remove ${name} from today?`;
+    if (!confirm(message)) return;
     try {
         await api(`/api/attendance/${attendanceId}`, {
             method: 'PUT',
-            body: JSON.stringify({ state: 'left', left_reason: 'removed' }),
+            body: JSON.stringify({ state: 'left', left_reason: wasBooked ? 'no-show' : 'removed' }),
         });
         await refreshAttendance();
     } catch (err) {
