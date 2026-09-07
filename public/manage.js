@@ -103,9 +103,16 @@ function courtNumberFor(courtId) {
     return c ? c.court_number : courtId;
 }
 
-function timeOnly(dtStr) {
-    if (!dtStr) return '';
-    return dtStr.split(' ')[1] || dtStr;
+// Server stores 'YYYY-MM-DD HH:MM:SS' in UTC (SQLite datetime('now')) -
+// same parse as display.js. Showing the raw string here once had the
+// Rounds page saying "ends 21:48:40" while the Display counted down to
+// 07:18 - the same instant, one in UTC and one in local time.
+function parseUtc(dtStr) {
+    return new Date(`${dtStr.replace(' ', 'T')}Z`).getTime();
+}
+
+function localClockTime(dtStr) {
+    return new Date(parseUtc(dtStr)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
 // --- Boot / session state ---
@@ -229,14 +236,43 @@ async function init() {
     }
     await checkSessionState();
     subscribeToEvents(handleServerEvent);
+    wireHornUnlockPill($('#sound-pill'));
     wireSessionNotesButton(() => openSession, (updated) => { openSession = updated; });
 }
 
 // --- Round status + controls ---
+let lastSeenPhase = null;
+
 async function loadRoundStatus() {
     roundStatus = await api(`/api/sessions/${openSession.id}/rounds/status`);
+    // A round just ended (not paused - that's a freeze, not an end). The
+    // Display screen owns the horn when it's open on this machine; see
+    // horn.js for the hand-off.
+    const phase = roundStatus.current_phase;
+    if (lastSeenPhase === 'game' && phase !== 'game' && phase !== 'paused' && !displayScreenHandlesHorn()) {
+        playHorn();
+    }
+    lastSeenPhase = phase;
     renderRoundControls();
 }
+
+// "round 3 - 12:41 left (ends 7:18 pm)" - the live remaining time is what
+// staff actually glance at; the wall-clock end time is there for planning.
+function phaseDetailText() {
+    const label = roundStatus.current_phase === 'game' ? `round ${roundStatus.current_round}` : 'changeover';
+    const endsAt = roundStatus.phase_ends_at;
+    if (!endsAt) return label;
+    return `${label} - ${minutesSeconds(parseUtc(endsAt) - Date.now())} left (ends ${localClockTime(endsAt)})`;
+}
+
+// Ticks the remaining time every second between server updates, exactly as
+// the Display screen does - the text used to be set once per SSE event and
+// then sit frozen until the next one.
+setInterval(() => {
+    if (!openSession || !roundStatus) return;
+    if (roundStatus.current_phase !== 'game' && roundStatus.current_phase !== 'break') return;
+    $('#phase-detail').textContent = phaseDetailText();
+}, 1000);
 
 // Phase values (and their CSS classes / API routes) stay as-is internally -
 // this only controls what staff actually see.
@@ -260,7 +296,7 @@ function renderRoundControls() {
     const pauseBtn = $('#pause-resume-btn');
 
     if (roundStatus.current_phase === 'game') {
-        detail.textContent = roundStatus.phase_ends_at ? `round ${roundStatus.current_round} - ends ${timeOnly(roundStatus.phase_ends_at)}` : `round ${roundStatus.current_round}`;
+        detail.textContent = phaseDetailText();
         btn.style.display = '';
         btn.textContent = `End round ${roundStatus.current_round}`;
         btn.disabled = false;
@@ -271,7 +307,7 @@ function renderRoundControls() {
         // get off court and the next group on, not a rest period. The
         // underlying phase value/DB column stays 'break' - only the label
         // shown to staff/players changes.
-        detail.textContent = roundStatus.phase_ends_at ? `changeover - ends ${timeOnly(roundStatus.phase_ends_at)}` : 'changeover';
+        detail.textContent = phaseDetailText();
         btn.style.display = '';
         btn.textContent = 'End changeover';
         btn.disabled = false;

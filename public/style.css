@@ -402,6 +402,12 @@ nav.app-nav a.active {
     text-transform: capitalize;
 }
 
+.sound-pill {
+    background: #fef3c7;
+    border-color: #fcd34d;
+    color: #92400e;
+}
+
 .round-controls {
     display: flex;
     align-items: center;

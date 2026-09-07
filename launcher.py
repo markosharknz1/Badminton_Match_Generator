@@ -273,6 +273,14 @@ def main():
                 f.write(base64.b64decode(data_base64))
             return {'ok': True, 'path': path}
 
+    # WebView2 blocks the Web Audio API until the user has clicked somewhere
+    # on the page (Chromium's autoplay policy) - which never happens on the
+    # Display window, a kiosk nobody touches. This flag lifts that gate for
+    # every window this app opens so the round-end horn (public/horn.js)
+    # plays unattended. Verified: without it AudioContext starts 'suspended'
+    # in a pywebview window, with it 'running'.
+    os.environ.setdefault('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS', '--autoplay-policy=no-user-gesture-required')
+
     server_process = start_server()
 
     def on_closed():

@@ -212,6 +212,20 @@ h1 { font-size: 3.4vmin; margin: 0; }
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* Only shown while the browser is blocking audio (see horn.js) - the
+   launcher's autoplay flag means the .exe never shows it. */
+.sound-pill {
+    font: inherit;
+    font-size: 1.8vmin;
+    font-weight: 600;
+    color: var(--bg);
+    background: var(--break);
+    border: none;
+    border-radius: 1vmin;
+    padding: 0.8vmin 1.4vmin;
+    cursor: pointer;
+    margin-right: auto;
+}
 #idle-screen {
     display: none;
     text-align: center;
@@ -228,6 +242,7 @@ h1 { font-size: 3.4vmin; margin: 0; }
 
 <div id="live-screen" style="display:none;">
     <header>
+        <button type="button" class="sound-pill" id="sound-pill" style="display:none;">Sound off - tap to enable the round-end horn</button>
         <div class="timer-block">
             <div class="wall-clock" id="wall-clock"></div>
             <div class="phase-label" id="phase-label"></div>
@@ -250,6 +265,7 @@ h1 { font-size: 3.4vmin; margin: 0; }
 
 <script src="/events.js"></script>
 <script src="/branding.js"></script>
+<script src="/horn.js"></script>
 <script src="/display.js"></script>
 <script src="/pwa.js"></script>
 </body>

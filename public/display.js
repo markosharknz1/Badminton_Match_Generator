@@ -5,6 +5,7 @@
 
 let displayData = null;
 let countdownHandle = null;
+let lastPhase = null;
 
 function $(sel) { return document.querySelector(sel); }
 
@@ -42,6 +43,7 @@ async function refresh() {
 
 function showIdle() {
     displayData = null;
+    lastPhase = null;
     $('#idle-screen').style.display = 'block';
     $('#live-screen').style.display = 'none';
 }
@@ -50,6 +52,12 @@ function render() {
     const d = displayData;
     $('#idle-screen').style.display = 'none';
     $('#live-screen').style.display = 'flex';
+
+    // The round just ended (a pause is a freeze, not an end) - sound the
+    // horn. Only on a transition seen live, never on first load mid-round.
+    const phase = d.session.current_phase;
+    if (lastPhase === 'game' && phase !== 'game' && phase !== 'paused') playHorn();
+    lastPhase = phase;
 
     renderPhase();
     renderCourts();
@@ -187,6 +195,9 @@ countdownHandle = setInterval(() => {
     tickCountdown();
 }, 1000);
 tickClock();
+
+wireHornUnlockPill($('#sound-pill'));
+startDisplayHornHeartbeat();
 
 refresh();
 // No club_name element on this page by design (see PROGRESS.md), but the
