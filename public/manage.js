@@ -272,6 +272,7 @@ setInterval(() => {
     if (!openSession || !roundStatus) return;
     if (roundStatus.current_phase !== 'game' && roundStatus.current_phase !== 'break') return;
     $('#phase-detail').textContent = phaseDetailText();
+    if (roundStatus.current_phase === 'break') updateNextRoundCallout();
 }, 1000);
 
 // Phase values (and their CSS classes / API routes) stay as-is internally -
@@ -357,13 +358,28 @@ function renderRoundControls() {
 // that "generated ahead, current round still live" situation - once the
 // round actually ends, the normal staged-round text in the idle/awaiting-
 // lineup branch above takes over.
+// Shown whenever auto mode has a next round staged - during the current
+// round (generated ahead) AND through the changeover (when it's minutes
+// from going live and a bad skill/personality match is most worth
+// fixing). The Edit button jumps to the Build Round panel, where every
+// staged court has its own Edit.
 function updateNextRoundCallout() {
     const callout = $('#next-round-callout');
-    const showIt = roundStatus.current_phase === 'game' && roundStatus.mode === 'auto' && roundStatus.staged_next_count > 0;
+    const showIt = roundStatus.mode === 'auto' && roundStatus.staged_next_count > 0;
     callout.style.display = showIt ? '' : 'none';
     if (!showIt) return;
     const n = roundStatus.staged_next_count;
-    $('#next-round-callout-text').textContent = `Round ${roundStatus.next_round_number} has been auto-generated (${n} court${n === 1 ? '' : 's'}) - review before it goes live.`;
+    const courts = `${n} court${n === 1 ? '' : 's'}`;
+    const round = roundStatus.next_round_number;
+    let text;
+    if (roundStatus.current_phase === 'game') {
+        text = `Round ${round} has been auto-generated (${courts}) - check the matchups before it goes live.`;
+    } else if (roundStatus.current_phase === 'break' && roundStatus.phase_ends_at) {
+        text = `Round ${round} is up next (${courts}) - goes live in ${minutesSeconds(parseUtc(roundStatus.phase_ends_at) - Date.now())}.`;
+    } else {
+        text = `Round ${round} is up next (${courts}).`;
+    }
+    $('#next-round-callout-text').textContent = text;
 }
 
 $('#next-round-review-btn').addEventListener('click', () => {
