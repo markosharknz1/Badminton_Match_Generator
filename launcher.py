@@ -117,6 +117,23 @@ def ensure_node():
     log('Node.js installed successfully.')
 
 
+def ensure_app_files():
+    # The exe is only the launcher - the app itself is the folder around it
+    # (server.js, db\, public\, node_modules\ ...). Copying just the exe
+    # somewhere on its own used to fail with a raw Node stack trace
+    # ("Cannot find module ...\db\init.js") that read like a broken build.
+    missing = [name for name in ('server.js', 'db', 'public', 'node_modules') if not os.path.exists(os.path.join(BASE_DIR, name))]
+    if missing:
+        _fatal(
+            'GameScheduler.exe must stay inside the Game Scheduler folder - it '
+            'looks like only the .exe was copied here:\n\n'
+            f'{BASE_DIR}\n\n'
+            f'Missing beside it: {", ".join(missing)}\n\n'
+            'Download the full GameScheduler ZIP from the Releases page, extract '
+            'it anywhere, and run GameScheduler.exe from inside that folder.'
+        )
+
+
 def ensure_database():
     # node db\init.js is idempotent and additive-only (see db/index.js) -
     # always safe to run, never touches real data.
@@ -228,6 +245,7 @@ def main():
     os.makedirs(LOG_DIR, exist_ok=True)
     log('--- GameScheduler.exe launched ---')
 
+    ensure_app_files()
     ensure_node()
     ensure_database()
     ensure_desktop_shortcut()
