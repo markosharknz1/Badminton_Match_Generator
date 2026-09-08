@@ -306,8 +306,65 @@ $('#backup-now').addEventListener('click', async () => {
     }
 });
 
-$('#backup-download').addEventListener('click', () => {
-    window.location.href = '/api/backup/download';
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+// Inside the native app shell (launcher.py) a plain navigation / <a
+// download> to a file does nothing - WebView2 doesn't handle downloads in
+// a pywebview window (same gap history.js works around). Hand the bytes
+// to pywebview's own Save As dialog there; regular browser tabs get a
+// normal download link instead.
+async function saveFile(filename, blob) {
+    if (window.pywebview?.api?.save_file) {
+        const result = await window.pywebview.api.save_file(filename, await blobToBase64(blob));
+        if (!result.ok && !result.cancelled) throw new Error('Could not save the file.');
+        return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Exactly the headings lib/csvImport.js's planImport reads (the batch's
+// membership status is chosen on this page, not per row - so it's not a
+// column). Two example rows show the expected formats: dob as
+// YYYY-MM-DD, skill_level A-E (blank defaults to C), gender M or F.
+const IMPORT_TEMPLATE_CSV = [
+    'first_name,last_name,email,phone,dob,skill_level,gender,membership_number,notes',
+    'Jane,Smith,jane.smith@example.com,0400 000 000,1990-05-14,B,F,1234,',
+    'Sam,Lee,,,,C,M,,Left-handed',
+].join('\r\n') + '\r\n';
+
+$('#import-template-download').addEventListener('click', async () => {
+    try {
+        await saveFile('player-import-template.csv', new Blob([IMPORT_TEMPLATE_CSV], { type: 'text/csv' }));
+        showError('');
+    } catch (err) {
+        showError(err.message);
+    }
+});
+
+$('#backup-download').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/api/backup/download');
+        if (!res.ok) throw new Error(`Download failed (${res.status})`);
+        const filename = (res.headers.get('content-disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'game_scheduler.db';
+        await saveFile(filename, await res.blob());
+        showError('');
+    } catch (err) {
+        showError(err.message);
+    }
 });
 
 // --- Boot ---

@@ -81,7 +81,11 @@
 
     <section class="panel">
         <h2>Import players</h2>
-        <p class="muted">CSV columns: first_name, last_name, email, phone, dob, skill_level, gender, membership_number. Or upload the club's membership Excel export directly (Rego #, Full Name, Gender, Mbshp Type, Status - Comp A/B/C maps to skill grade, others default to C for review). Existing players are never overwritten - exact matches are skipped and near-matches flagged for review.</p>
+        <p class="muted">CSV columns: first_name, last_name, email, phone, dob, skill_level, gender, membership_number, notes. Or upload the club's membership Excel export directly (Rego #, Full Name, Gender, Mbshp Type, Status - Comp A/B/C maps to skill grade, others default to C for review). Existing players are never overwritten - exact matches are skipped and near-matches flagged for review.</p>
+        <div class="row" style="align-items: center; gap: 12px; margin-bottom: 12px;">
+            <button type="button" class="small" id="import-template-download">Download CSV template</button>
+            <span class="muted">The exact column headings, with two example rows to replace.</span>
+        </div>
         <div class="field">
             <label>CSV or Excel (.xlsx) file</label>
             <input type="file" id="import-file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
