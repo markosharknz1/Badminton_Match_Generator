@@ -54,10 +54,11 @@ function ensureBaselineDefaults(db) {
         }
     }
 
-    if (count('payment_categories') === 0) {
-        const names = ['Member', 'Non-Member', 'Member Concession', 'Non-member Concession', 'Sports Voucher', 'Other'];
-        names.forEach((name, i) => db.run(`INSERT INTO payment_categories (name, sort_order) VALUES (?, ?)`, [name, i]));
-    }
+    // Payment categories are deliberately NOT seeded: they're the club's own
+    // pricing tiers, and a new club sets up its own in Settings rather than
+    // inheriting another club's list. Nothing needs them to exist - payment
+    // tracking is off by default, and Settings/check-in both handle an
+    // empty list with a clear "add some" message.
 
     if (count('skill_compatibility') === 0) {
         const grades = ['A', 'B', 'C', 'D', 'E'];
