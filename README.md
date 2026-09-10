@@ -12,7 +12,7 @@ picture.
 ## Install
 
 1. Download `GameScheduler-vX.Y.Z.zip` from the
-   [latest release](https://github.com/markosharknz1/Badminton_Match_Generator/releases/latest)
+   [latest release](https://github.com/markosharknz1/Session_Organiser/releases/latest)
    and extract it anywhere (e.g. `C:\Club\Scheduler`).
 2. Double-click `GameScheduler.exe` inside that folder.
 

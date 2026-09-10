@@ -349,8 +349,8 @@ To restore a backup:
 3. Re-launch GameScheduler.exe.
 
 To re-download the app itself:
-  Repository:  https://github.com/markosharknz1/Badminton_Match_Generator
-  Releases:    https://github.com/markosharknz1/Badminton_Match_Generator/releases
+  Repository:  https://github.com/markosharknz1/Session_Organiser
+  Releases:    https://github.com/markosharknz1/Session_Organiser/releases
 
 Download the latest release's GameScheduler.exe, then restore a backup as
 above if you need to bring your club's data back.

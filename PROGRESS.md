@@ -75,7 +75,7 @@ npm run report:test    # Excel export / peak-concurrent metric (7 tests)
 
 ## Repository
 
-Pushed to GitHub: **https://github.com/markosharknz1/Badminton_Match_Generator**
+Pushed to GitHub: **https://github.com/markosharknz1/Session_Organiser**
 (private). `.gitignore` excludes `*.log`, `game_scheduler.db`, `exports/` —
 **`node_modules/` is deliberately committed** (see design decisions below),
 so this is one of the rare Node projects where you should *not* gitignore it.
