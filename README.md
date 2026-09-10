@@ -1,10 +1,16 @@
 # Game Scheduler
 
-A local desktop app for running a club's social session on courts - any
-doubles sport with a rotation of players: check players in, take payments, put
-together the rounds (by hand or automatically, with skill grades and
-gender-aware pairing), run the round timer with a horn, show the courts on a
-TV, and keep the session's history and totals.
+A local desktop app for running a club's social session on courts - any sport
+played as doubles or singles with a rotation of players: check players in,
+take payments, put together the rounds (by hand or automatically, with skill
+grades and gender-aware pairing), run the round timer with a horn, show the
+courts on a TV, and keep the session's history and totals.
+
+It doesn't have to run your courts at all. A session can be started in
+**Social mode**, which is check-in and payment only - no rounds, no timer -
+so a club can use it purely to record who came, what they paid, and the
+night's totals, and still get the payment history, per-session counts, trends
+and the emailed end-of-night summary.
 
 Everything runs on the club's own computer. There are no accounts, no cloud,
 and no data leaves the machine - see [SECURITY.md](SECURITY.md) for the full
