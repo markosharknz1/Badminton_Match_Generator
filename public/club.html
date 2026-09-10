@@ -34,6 +34,7 @@
         <div class="field">
             <label>Section</label>
             <select id="settings-section">
+                <option value="overview">Overview</option>
                 <option value="courts">Courts</option>
                 <option value="skill">Skill Compatibility</option>
                 <option value="templates">Session Templates</option>
@@ -41,6 +42,33 @@
                 <option value="payments">Payments</option>
                 <option value="club-details">Club Details</option>
             </select>
+        </div>
+    </section>
+
+    <section class="panel" data-section="overview">
+        <div class="overview-club">
+            <img id="overview-icon" src="/api/branding/icon" alt="">
+            <div>
+                <h2 id="overview-club-name"></h2>
+                <p class="muted" id="overview-club-meta" style="margin:2px 0 0;"></p>
+            </div>
+        </div>
+        <div class="overview-grid">
+            <div>
+                <h3>Normal sessions</h3>
+                <div id="overview-sessions"></div>
+            </div>
+            <div>
+                <h3>Settings</h3>
+                <div class="overview-links">
+                    <button type="button" data-goto="club-details">Club details - name, date format, defaults, icon, payment categories</button>
+                    <button type="button" data-goto="templates">Session templates</button>
+                    <button type="button" data-goto="courts">Courts</button>
+                    <button type="button" data-goto="skill">Skill compatibility</button>
+                    <button type="button" data-goto="email">Email</button>
+                    <button type="button" data-goto="payments">Payments (Square)</button>
+                </div>
+            </div>
         </div>
     </section>
 

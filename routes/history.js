@@ -12,7 +12,7 @@ const router = express.Router();
 // List of sessions with summary counts, for the history landing page.
 router.get('/sessions', (req, res) => {
     const sessions = store.query(
-        `SELECT s.id, s.date, s.label, s.mode, s.status,
+        `SELECT s.id, s.date, s.label, s.mode, s.status, s.template_id, s.scheduled_start_time,
                 (SELECT COUNT(DISTINCT a.player_id) FROM attendance a WHERE a.session_id = s.id) AS players_checked_in,
                 (SELECT COUNT(DISTINCT g.round_number) FROM games g WHERE g.session_id = s.id AND g.status IN ('active','completed')) AS rounds_played,
                 (SELECT COUNT(*) FROM games g WHERE g.session_id = s.id AND g.status IN ('active','completed')) AS games_played
@@ -27,8 +27,11 @@ router.get('/sessions/:id', (req, res) => {
     const session = store.queryOne('SELECT * FROM sessions WHERE id = ?', [req.params.id]);
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
+    // started_at is when the round actually went on court; rounds from
+    // before that column existed fall back to when the game was created.
     const games = store.query(
-        `SELECT g.id, g.court_id, g.round_number, g.format, g.status, g.mode, c.court_number
+        `SELECT g.id, g.court_id, g.round_number, g.format, g.status, g.mode, c.court_number,
+                COALESCE(g.started_at, g.created_at) AS started_at
          FROM games g JOIN courts c ON c.id = g.court_id
          WHERE g.session_id = ? AND g.status IN ('active','completed')
          ORDER BY g.round_number, c.court_number`,
@@ -49,13 +52,32 @@ router.get('/sessions/:id', (req, res) => {
     for (const g of gamesWithPlayers) {
         let round = rounds.find((r) => r.round_number === g.round_number);
         if (!round) {
-            round = { round_number: g.round_number, games: [] };
+            round = { round_number: g.round_number, started_at: g.started_at, games: [] };
             rounds.push(round);
         }
+        if (g.started_at < round.started_at) round.started_at = g.started_at;
         round.games.push(g);
     }
 
     res.json({ session, rounds });
+});
+
+// How many games each player present tonight has had - the fairness
+// check staff want while building a round. Least-played first; a player
+// currently on court is included (their live game counts).
+router.get('/sessions/:id/games-per-player', (req, res) => {
+    const session = store.queryOne('SELECT id FROM sessions WHERE id = ?', [req.params.id]);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const rows = store.query(
+        `SELECT p.id AS player_id, p.first_name, p.last_name, p.skill_level, p.gender, a.state,
+                (SELECT COUNT(*) FROM game_players gp JOIN games g ON g.id = gp.game_id
+                 WHERE gp.player_id = p.id AND g.session_id = a.session_id AND g.status IN ('active','completed')) AS games_played
+         FROM attendance a JOIN players p ON p.id = a.player_id
+         WHERE a.session_id = ? AND a.state IN ('here_today','playing')
+         ORDER BY games_played ASC, p.last_name, p.first_name`,
+        [req.params.id]
+    );
+    res.json(rows);
 });
 
 // Every game a specific player appeared in, across all sessions - answers

@@ -8,9 +8,15 @@ const router = express.Router();
 // JSON preview of the same rows the .xlsx contains - lets the UI show a table
 // before the user commits to downloading, and keeps the export logic testable
 // without parsing a binary file.
+function reportFilter(query) {
+    if (query.template_id) return { templateId: Number(query.template_id) };
+    if (query.adhoc === '1') return { adhoc: true };
+    return {};
+}
+
 router.get('/report', (req, res) => {
     const { from, to } = req.query;
-    const rows = sessionReportRows(store.getDb(), from, to);
+    const rows = sessionReportRows(store.getDb(), from, to, reportFilter(req.query));
     res.json({ from: from || null, to: to || null, rows });
 });
 
@@ -18,7 +24,7 @@ router.get('/report', (req, res) => {
 // club can pivot/chart headcount over time in Excel directly.
 router.get('/report.xlsx', async (req, res) => {
     const { from, to } = req.query;
-    const rows = sessionReportRows(store.getDb(), from, to);
+    const rows = sessionReportRows(store.getDb(), from, to, reportFilter(req.query));
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Game Scheduler';

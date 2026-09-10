@@ -35,14 +35,83 @@ function showView(which) {
 
 // --- Session list ---
 let allSessions = [];
+let templates = [];
+
+// "all" | "adhoc" | a template id as a string - narrows everything on the
+// landing page (calendar, list, trend, export) to one kind of session, so
+// "how are Tuesday mornings going" is one dropdown pick, not mental
+// filtering of the whole history.
+let sessionFilter = 'all';
+
+function filteredSessions() {
+    if (sessionFilter === 'all') return allSessions;
+    if (sessionFilter === 'adhoc') return allSessions.filter((s) => !s.template_id);
+    return allSessions.filter((s) => String(s.template_id) === sessionFilter);
+}
+
+async function loadTemplateFilterOptions() {
+    templates = await api('/api/session-templates');
+    const select = $('#session-filter');
+    const keep = select.value;
+    select.querySelectorAll('option[data-template]').forEach((o) => o.remove());
+    for (const t of templates) {
+        const opt = document.createElement('option');
+        opt.value = String(t.id);
+        opt.dataset.template = '1';
+        opt.textContent = `${t.label} (${t.day_of_week} ${t.start_time})`;
+        select.appendChild(opt);
+    }
+    select.value = [...select.options].some((o) => o.value === keep) ? keep : 'all';
+    sessionFilter = select.value;
+}
+
+$('#session-filter').addEventListener('change', () => {
+    sessionFilter = $('#session-filter').value;
+    renderSessionsTable();
+    renderCalendar();
+    renderTrend();
+});
+
+function renderTrend() {
+    const panel = $('#trend-panel');
+    const sessions = filteredSessions().slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id));
+    if (sessionFilter === 'all' || sessions.length === 0) {
+        panel.innerHTML = sessionFilter === 'all' ? '' : '<p class="muted">No sessions of this kind yet.</p>';
+        return;
+    }
+    const avg = (key) => (sessions.reduce((sum, s) => sum + s[key], 0) / sessions.length).toFixed(1);
+    const best = sessions.reduce((m, s) => (s.players_checked_in > m.players_checked_in ? s : m), sessions[0]);
+    const recent = sessions.slice(-24);
+    const max = Math.max(1, ...recent.map((s) => s.players_checked_in));
+    panel.innerHTML = `
+        <div class="trend-summary">
+            <div><strong>${sessions.length}</strong><span class="muted">sessions</span></div>
+            <div><strong>${avg('players_checked_in')}</strong><span class="muted">avg players</span></div>
+            <div><strong>${avg('rounds_played')}</strong><span class="muted">avg rounds</span></div>
+            <div><strong>${best.players_checked_in}</strong><span class="muted">best night (${formatDate(best.date)})</span></div>
+        </div>
+        <div class="trend-bars">
+            ${recent.map((s) => `<div class="trend-bar" data-session-id="${s.id}" style="height:${Math.round((s.players_checked_in / max) * 100)}%;" title="${esc(formatDate(s.date))} - ${s.players_checked_in} players, ${s.rounds_played} rounds"></div>`).join('')}
+        </div>
+        <p class="muted" style="margin:6px 0 0;">Players per session, oldest to newest${sessions.length > recent.length ? ` (last ${recent.length} of ${sessions.length})` : ''} - hover for the date, click to open.</p>
+    `;
+    panel.querySelectorAll('.trend-bar').forEach((el) => el.addEventListener('click', () => openSession(Number(el.dataset.sessionId))));
+}
 
 async function loadSessions() {
     allSessions = await api('/api/history/sessions');
+    renderSessionsTable();
+    renderCalendar();
+    renderTrend();
+}
+
+function renderSessionsTable() {
+    const sessions = filteredSessions();
     const tbody = $('#sessions-table tbody');
-    if (allSessions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="muted">No sessions yet.</td></tr>';
+    if (sessions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="muted">${allSessions.length ? 'No sessions of this kind yet.' : 'No sessions yet.'}</td></tr>`;
     } else {
-        tbody.innerHTML = allSessions.map((s) => `
+        tbody.innerHTML = sessions.map((s) => `
             <tr data-session-id="${s.id}">
                 <td>${formatDate(s.date)}</td>
                 <td>${esc(s.label || 'Session')} ${s.status === 'open' ? '<span class="badge">open</span>' : ''}</td>
@@ -56,7 +125,6 @@ async function loadSessions() {
             tr.addEventListener('click', () => openSession(Number(tr.dataset.sessionId)));
         });
     }
-    renderCalendar();
 }
 
 // --- Calendar (ported from the club's other admin app, Club Training) ---
@@ -90,7 +158,7 @@ function buildCalendarWeeks(year, month) {
 
 function renderCalendar() {
     const byDate = new Map();
-    for (const s of allSessions) {
+    for (const s of filteredSessions()) {
         if (!byDate.has(s.date)) byDate.set(s.date, []);
         byDate.get(s.date).push(s);
     }
@@ -245,6 +313,8 @@ function reportRangeQs() {
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    if (sessionFilter === 'adhoc') params.set('adhoc', '1');
+    else if (sessionFilter !== 'all') params.set('template_id', sessionFilter);
     return params.toString() ? `?${params.toString()}` : '';
 }
 
@@ -293,6 +363,7 @@ async function init() {
         setDateFormat(club.date_format);
     } catch (err) { /* non-fatal */ }
     try {
+        await loadTemplateFilterOptions();
         await loadSessions();
     } catch (err) {
         showError(err.message);

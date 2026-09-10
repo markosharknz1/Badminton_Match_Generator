@@ -61,14 +61,53 @@ function showSettingsSection(name) {
     document.querySelectorAll('[data-section]').forEach((el) => {
         el.style.display = el.dataset.section === name ? '' : 'none';
     });
+    if ($('#settings-section').value !== name) $('#settings-section').value = name;
+    window.scrollTo(0, 0);
 }
 
 $('#settings-section').addEventListener('change', () => showSettingsSection($('#settings-section').value));
-showSettingsSection($('#settings-section').value);
+document.querySelectorAll('[data-goto]').forEach((btn) => btn.addEventListener('click', () => showSettingsSection(btn.dataset.goto)));
+showSettingsSection('overview');
+
+// --- Overview (what Settings opens to): the club at a glance ---
+let clubSettings = null;
+
+function renderOverview() {
+    if (!clubSettings) return;
+    $('#overview-club-name').textContent = clubSettings.club_name;
+    $('#overview-icon').src = `/api/branding/icon?v=${clubSettings.club_icon_ver || 0}`;
+    const activeCourts = courts.filter((c) => c.is_active).length;
+    $('#overview-club-meta').textContent = `${activeCourts} court${activeCourts === 1 ? '' : 's'} · ${clubSettings.default_game_minutes} min games, ${clubSettings.default_break_minutes} min changeovers · payment tracking ${clubSettings.square_enabled ? 'on' : 'off'}`;
+
+    const list = $('#overview-sessions');
+    if (!templates.length) {
+        list.innerHTML = '<p class="muted">No session templates yet - add your regular session days under Session templates.</p>';
+        return;
+    }
+    list.innerHTML = templates.map((t) => {
+        const courtNumbers = (t.courts || []).slice().sort((a, b) => a.court_number - b.court_number).map((c) => c.court_number).join(', ') || 'none';
+        const modeLabel = t.default_mode === 'auto' ? 'Auto' : t.default_mode === 'social' ? 'Social' : 'Manual';
+        const rates = (t.payment_rates || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+        const priceBox = rates.length
+            ? `<div class="price-box">${rates.map((r) => `<div><span>${esc(r.name)}</span><strong>$${dollarsDisplay(r.amount_cents)}</strong></div>`).join('')}</div>`
+            : '<div class="price-box muted">No prices set</div>';
+        return `
+            <div class="overview-session">
+                <div>
+                    <strong>${esc(t.label)}</strong>
+                    <p class="muted" style="margin:4px 0 0;">${DAY_LABELS[t.day_of_week] || t.day_of_week} ${t.start_time}-${t.end_time} · ${modeLabel} mode<br>Courts ${courtNumbers}${t.default_max_capacity ? ` · guideline ${t.default_max_capacity} players` : ''}</p>
+                </div>
+                ${priceBox}
+            </div>
+        `;
+    }).join('');
+}
 
 // --- Club settings ---
 async function loadSettings() {
     const s = await api('/api/club-settings');
+    clubSettings = s;
+    renderOverview();
     $('#club-name').textContent = s.club_name;
     applyBranding(s);
     setDateFormat(s.date_format);
@@ -110,6 +149,8 @@ $('#cs-save').addEventListener('click', async () => {
         });
         $('#club-name').textContent = saved.club_name;
         setDateFormat(saved.date_format);
+        clubSettings = saved;
+        renderOverview();
         showError('');
         flashSaved('#cs-saved');
     } catch (err) {
@@ -236,6 +277,7 @@ $('#payments-save').addEventListener('click', async () => {
 async function loadCourts() {
     courts = await api('/api/courts');
     renderCourts();
+    renderOverview();
 }
 
 function renderCourts() {
@@ -260,7 +302,7 @@ async function toggleCourt(courtNumber) {
         }
         showError('');
         await loadCourts();
-        await loadTemplates(); // template court checkboxes only list active courts
+        await loadTemplates(); // template court cells mark which numbers are on the club roster
     } catch (err) {
         showError(err.message);
     }
@@ -423,6 +465,7 @@ $('#pc-add').addEventListener('click', async () => {
 async function loadTemplates() {
     templates = await api('/api/session-templates');
     renderTemplates();
+    renderOverview();
 }
 
 // Rotation guideline: a soft, informational headcount target for this
@@ -440,8 +483,14 @@ const MODE_HELP = 'Auto: rounds generate and start themselves. Manual: a lineup 
 
 function templateEditHtml(t, idx) {
     const isNew = !t.id;
-    const activeCourts = courts.filter((c) => c.is_active);
-    const templateCourtIds = new Set((t.courts || []).map((c) => c.court_id));
+    // Every venue court number (1-32) is offered, not just the ones already
+    // ticked on the Courts page - picking one that isn't on the club's
+    // roster yet adds it there on save (see ensureCourtIds). A new template
+    // starts with the club's active courts selected.
+    const rosterByNumber = new Map(courts.map((c) => [c.court_number, c]));
+    const selectedNumbers = new Set(
+        isNew ? courts.filter((c) => c.is_active).map((c) => c.court_number) : (t.courts || []).map((c) => c.court_number)
+    );
     const rateByCategory = new Map((t.payment_rates || []).map((r) => [r.payment_category_id, r.amount_cents]));
     const activeCategories = paymentCategories.filter((c) => c.is_active);
     return `
@@ -487,10 +536,12 @@ function templateEditHtml(t, idx) {
             </div>
             <div class="field">
                 <label>Normal courts</label>
+                <p class="muted" style="font-size:0.78rem; margin: 0 0 6px;">Click to toggle. A court not yet on the Courts page is added there automatically when you save.</p>
                 <div class="court-roster tpl-court-roster">
-                    ${activeCourts.map((c) => `
-                        <div class="court-cell tpl-court-cell ${isNew || templateCourtIds.has(c.id) ? 'active' : ''}" data-court-id="${c.id}">Court ${c.court_number}</div>
-                    `).join('')}
+                    ${Array.from({ length: 32 }, (_, i) => i + 1).map((n) => {
+                        const onRoster = rosterByNumber.get(n)?.is_active;
+                        return `<div class="court-cell tpl-court-cell ${selectedNumbers.has(n) ? 'active' : ''}" data-court-number="${n}" title="${onRoster ? `Court ${n}` : `Court ${n} - not on the Courts page yet`}">${n}</div>`;
+                    }).join('')}
                 </div>
             </div>
             <div class="field">
@@ -579,15 +630,37 @@ function readTemplateCard(idx) {
         default_max_capacity: capacity === '' ? null : Number(capacity),
         default_game_minutes: gameMinutes === '' ? null : Number(gameMinutes),
         default_break_minutes: breakMinutes === '' ? null : Number(breakMinutes),
-        court_ids: Array.from(card.querySelectorAll('.tpl-court-cell.active')).map((i) => Number(i.dataset.courtId)),
+        court_numbers: Array.from(card.querySelectorAll('.tpl-court-cell.active')).map((i) => Number(i.dataset.courtNumber)),
         payment_rates,
     };
+}
+
+// Court numbers -> court ids, creating/re-activating any that aren't on
+// the club's roster yet so a template can never reference a court that
+// doesn't exist (sessions started from it copy these ids).
+async function ensureCourtIds(courtNumbers) {
+    const ids = [];
+    let rosterChanged = false;
+    for (const n of courtNumbers) {
+        let court = courts.find((c) => c.court_number === n);
+        if (!court) {
+            court = await api('/api/courts', { method: 'POST', body: JSON.stringify({ court_number: n, is_active: true }) });
+            rosterChanged = true;
+        } else if (!court.is_active) {
+            await api(`/api/courts/${court.id}`, { method: 'PUT', body: JSON.stringify({ is_active: true }) });
+            rosterChanged = true;
+        }
+        ids.push(court.id);
+    }
+    if (rosterChanged) await loadCourts();
+    return ids;
 }
 
 async function saveTemplate(idx) {
     const t = templates[idx];
     const body = readTemplateCard(idx);
     try {
+        body.court_ids = await ensureCourtIds(body.court_numbers);
         let savedId = t.id;
         if (t.id) {
             await api(`/api/session-templates/${t.id}`, { method: 'PUT', body: JSON.stringify(body) });

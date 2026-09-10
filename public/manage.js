@@ -77,26 +77,75 @@ function renderHistoryGameRow(g) {
     `;
 }
 
+// One round at a time (newest first, stepped with Previous/Next) - every
+// round stacked in one scrolling window was too hard to read on the night.
+let roundsModalRounds = [];
+let roundsModalIndex = 0;
+
 async function openRoundsModal() {
     try {
         const data = await api(`/api/history/sessions/${openSession.id}`);
         $('#rounds-modal-title').textContent = `Rounds played - ${data.session.label || 'Session'}`;
-        const body = $('#rounds-modal-body');
-        if (data.rounds.length === 0) {
-            body.innerHTML = '<p class="muted">No rounds played yet this session.</p>';
-        } else {
-            body.innerHTML = data.rounds.map((round) => `
-                <div class="round-block">
-                    <h3>Round ${round.round_number}</h3>
-                    ${round.games.map((g) => renderHistoryGameRow(g)).join('')}
-                </div>
-            `).join('');
-        }
+        roundsModalRounds = data.rounds;
+        roundsModalIndex = Math.max(0, data.rounds.length - 1);
+        renderRoundsModal();
         $('#rounds-modal-backdrop').style.display = 'flex';
     } catch (err) {
         showError(err.message);
     }
 }
+
+function renderRoundsModal() {
+    const body = $('#rounds-modal-body');
+    const nav = $('#rounds-modal-nav');
+    if (roundsModalRounds.length === 0) {
+        nav.style.display = 'none';
+        body.innerHTML = '<p class="muted">No rounds played yet this session.</p>';
+        return;
+    }
+    const round = roundsModalRounds[roundsModalIndex];
+    nav.style.display = '';
+    $('#rounds-modal-prev').disabled = roundsModalIndex === 0;
+    $('#rounds-modal-next').disabled = roundsModalIndex === roundsModalRounds.length - 1;
+    $('#rounds-modal-pos').textContent = `Round ${round.round_number} of ${roundsModalRounds[roundsModalRounds.length - 1].round_number}`;
+    body.innerHTML = `
+        <div class="round-block">
+            <h3>Round ${round.round_number} <span class="muted round-started">started ${localClockTime(round.started_at)}</span></h3>
+            ${round.games.map((g) => renderHistoryGameRow(g)).join('')}
+        </div>
+    `;
+}
+
+$('#rounds-modal-prev').addEventListener('click', () => { if (roundsModalIndex > 0) { roundsModalIndex--; renderRoundsModal(); } });
+$('#rounds-modal-next').addEventListener('click', () => { if (roundsModalIndex < roundsModalRounds.length - 1) { roundsModalIndex++; renderRoundsModal(); } });
+
+// Fairness check while building a round: who's had the fewest games tonight.
+async function openGamesPlayedModal() {
+    try {
+        const rows = await api(`/api/history/sessions/${openSession.id}/games-per-player`);
+        const body = $('#games-played-modal-body');
+        body.innerHTML = rows.length
+            ? `<table class="history-table"><thead><tr><th>Player</th><th>Grade</th><th class="num">Games</th></tr></thead><tbody>
+                ${rows.map((r) => `
+                    <tr>
+                        <td>${esc(r.first_name)} ${esc(r.last_name)}${r.state === 'playing' ? ' <span class="muted">(on court)</span>' : ''}</td>
+                        <td>${skillBadge(r.skill_level)}</td>
+                        <td class="num"><strong>${r.games_played}</strong></td>
+                    </tr>
+                `).join('')}
+              </tbody></table>`
+            : '<p class="muted">No one checked in yet.</p>';
+        $('#games-played-modal-backdrop').style.display = 'flex';
+    } catch (err) {
+        showError(err.message);
+    }
+}
+
+$('#games-played-btn').addEventListener('click', openGamesPlayedModal);
+$('#games-played-modal-close').addEventListener('click', () => { $('#games-played-modal-backdrop').style.display = 'none'; });
+$('#games-played-modal-backdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'games-played-modal-backdrop') $('#games-played-modal-backdrop').style.display = 'none';
+});
 
 function courtNumberFor(courtId) {
     const c = sessionCourts.find((sc) => sc.court_id === courtId);

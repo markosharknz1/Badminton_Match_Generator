@@ -33,6 +33,20 @@
     <!-- Landing: calendar, export, session list, then player lookup -->
     <section id="landing-view">
         <div class="panel">
+            <div class="filter-bar">
+                <div class="field">
+                    <label>Show</label>
+                    <select id="session-filter">
+                        <option value="all">All sessions</option>
+                        <option value="adhoc">Ad-hoc sessions only</option>
+                    </select>
+                </div>
+                <p class="muted" style="margin:0 0 6px;">Pick a session template (e.g. Tuesday morning) to see just those nights - the calendar, list, trend, and the .xlsx export below all follow this.</p>
+            </div>
+            <div id="trend-panel"></div>
+        </div>
+
+        <div class="panel">
             <div class="calendar-header">
                 <button id="calendar-prev" class="small">&lsaquo; Prev</button>
                 <h2 id="calendar-title"></h2>

@@ -133,7 +133,8 @@ CREATE TABLE IF NOT EXISTS games (
     format TEXT NOT NULL CHECK (format IN ('singles','doubles')),
     mode TEXT NOT NULL CHECK (mode IN ('auto','manual')),
     status TEXT NOT NULL CHECK (status IN ('staged','active','completed')) DEFAULT 'staged',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    started_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS game_players (

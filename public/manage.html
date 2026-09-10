@@ -116,7 +116,10 @@
                         <button class="small" id="round-plus">+</button>
                     </span>
                 </h2>
-                <button class="primary" id="auto-generate-btn">Auto-generate round</button>
+                <span class="row" style="gap: 8px;">
+                    <button id="games-played-btn">Games played today</button>
+                    <button class="primary" id="auto-generate-btn">Auto-generate round</button>
+                </span>
             </div>
             <p class="muted">Drag a player from the pool onto a side, or use Auto-generate to fill any empty courts automatically. Doubles needs 2 per side; singles needs 1 per side.</p>
 
@@ -134,9 +137,25 @@
 <div id="rounds-modal-backdrop" class="modal-backdrop" style="display:none;">
     <div class="modal wide">
         <h3 id="rounds-modal-title">Rounds played</h3>
+        <div class="round-stepper rounds-modal-nav" id="rounds-modal-nav">
+            <button class="small" id="rounds-modal-prev">&lsaquo; Previous round</button>
+            <strong id="rounds-modal-pos"></strong>
+            <button class="small" id="rounds-modal-next">Next round &rsaquo;</button>
+        </div>
         <div id="rounds-modal-body"></div>
         <div class="row" style="justify-content: flex-end;">
             <button id="rounds-modal-close">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="games-played-modal-backdrop" class="modal-backdrop" style="display:none;">
+    <div class="modal">
+        <h3>Games played today</h3>
+        <p class="muted" style="margin-top:-8px;">Everyone checked in, fewest games first - a game in progress counts.</p>
+        <div id="games-played-modal-body" class="games-played-body"></div>
+        <div class="row" style="justify-content: flex-end;">
+            <button id="games-played-modal-close">Close</button>
         </div>
     </div>
 </div>

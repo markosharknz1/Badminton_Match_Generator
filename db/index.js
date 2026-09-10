@@ -186,6 +186,13 @@ function ensureColumns(db) {
         db.run(`ALTER TABLE attendance ADD COLUMN payment_method TEXT CHECK (payment_method IN ('Cash','Card','Voucher'))`);
     }
 
+    const gamesCols = all(db, `PRAGMA table_info(games)`).map((c) => c.name);
+    if (!gamesCols.includes('started_at')) {
+        // When the game actually went on court - created_at is when it was
+        // staged, which in auto mode is minutes earlier (pre-generation).
+        db.run(`ALTER TABLE games ADD COLUMN started_at TEXT`);
+    }
+
     const paymentCategoryCols = all(db, `PRAGMA table_info(payment_categories)`).map((c) => c.name);
     if (!paymentCategoryCols.includes('is_system')) {
         db.run(`ALTER TABLE payment_categories ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0 CHECK (is_system IN (0,1))`);

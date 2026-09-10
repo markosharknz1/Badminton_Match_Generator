@@ -995,6 +995,88 @@ textarea {
     margin-bottom: 12px;
 }
 
+.rounds-modal-nav {
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.round-block h3 .round-started {
+    font-weight: 400;
+    font-size: 0.85rem;
+    margin-left: 8px;
+}
+
+.games-played-body {
+    max-height: 60vh;
+    overflow-y: auto;
+    margin-bottom: 12px;
+}
+
+/* History: per-session headcount bars for the filtered set of sessions */
+.trend-summary {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.trend-summary strong { font-size: 1.3rem; display: block; }
+.trend-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 120px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 2px;
+}
+.trend-bar {
+    flex: 1;
+    min-width: 6px;
+    max-width: 36px;
+    background: var(--primary);
+    border-radius: 3px 3px 0 0;
+    cursor: pointer;
+    position: relative;
+}
+.trend-bar:hover { opacity: 0.8; }
+
+/* Settings overview */
+.overview-club {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+.overview-club img { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; }
+.overview-club h2 { margin: 0; font-size: 1.4rem; }
+.overview-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+@media (max-width: 800px) { .overview-grid { grid-template-columns: 1fr; } }
+.overview-session {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+.overview-session .price-box {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    min-width: 150px;
+}
+.overview-session .price-box div { display: flex; justify-content: space-between; gap: 12px; }
+.overview-links { display: flex; flex-direction: column; gap: 8px; }
+.overview-links button { text-align: left; }
+
 /* --- Payment cells / badges --- */
 .payment-cell { cursor: pointer; }
 
