@@ -1,9 +1,10 @@
 # Game Scheduler
 
-A local desktop app for running an adult badminton club night: check players
-in, take payments, put together doubles rounds (by hand or automatically, with
-skill grades and gender-aware pairing), run the round timer with a horn, show
-the courts on a TV, and keep the night's history and totals.
+A local desktop app for running a club's social session on courts - any
+doubles sport with a rotation of players: check players in, take payments, put
+together the rounds (by hand or automatically, with skill grades and
+gender-aware pairing), run the round timer with a horn, show the courts on a
+TV, and keep the session's history and totals.
 
 Everything runs on the club's own computer. There are no accounts, no cloud,
 and no data leaves the machine - see [SECURITY.md](SECURITY.md) for the full

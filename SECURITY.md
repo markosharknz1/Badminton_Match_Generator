@@ -1,6 +1,6 @@
 # Security and privacy
 
-Game Scheduler is a local desktop app for running a badminton club night. It is
+Game Scheduler is a local desktop app for running a club's session night. It is
 built to keep a club's data on the club's own computer. This page says exactly
 what it does and doesn't do, so you can judge that for yourself.
 

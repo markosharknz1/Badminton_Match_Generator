@@ -2,7 +2,7 @@
     "id": "/checkin.html",
     "name": "Game Scheduler",
     "short_name": "Game Scheduler",
-    "description": "Adult badminton club pegboard app - check-in, court games, and display screen",
+    "description": "Club session organiser - check-in, court rounds, and display screen",
     "start_url": "/checkin.html",
     "scope": "/",
     "display": "standalone",

@@ -1,4 +1,4 @@
--- Game Scheduler (adult badminton pegboard app) schema
+-- Game Scheduler (club session organiser) schema
 -- Enums are modeled as TEXT + CHECK constraints (sql.js is plain SQLite, no native enum type).
 
 CREATE TABLE IF NOT EXISTS players (
@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS pairing_rules (
 
 CREATE TABLE IF NOT EXISTS club_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    club_name TEXT NOT NULL DEFAULT 'My Badminton Club',
+    club_name TEXT NOT NULL DEFAULT 'My Club',
     default_game_minutes INTEGER NOT NULL DEFAULT 15,
     default_break_minutes INTEGER NOT NULL DEFAULT 3,
     max_capacity INTEGER,

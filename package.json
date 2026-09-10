@@ -1,7 +1,7 @@
 {
   "name": "game-scheduler",
   "version": "1.0.10",
-  "description": "Adult badminton club pegboard app - check-in, court games, display screen",
+  "description": "Club session organiser - check-in, court rounds, display screen",
   "private": true,
   "type": "commonjs",
   "main": "server.js",
