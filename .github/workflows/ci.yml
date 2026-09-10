@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm run csv:test
+      - run: npm run autogen:test
+      - run: npm run report:test
+      - run: npm run roundbuilder:test
+
+  build:
+    name: Build GameScheduler.exe
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyinstaller pywebview pythonnet pywin32
+      - run: pyinstaller --onefile --noconsole --name GameScheduler --icon app_icon.ico launcher.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameScheduler.exe
+          path: dist/GameScheduler.exe

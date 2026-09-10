@@ -4,8 +4,11 @@ exports/
 logs/
 .edge-app-profile/
 __pycache__/
-# PyInstaller working dirs - build_exe.bat regenerates these; only the
-# resulting GameScheduler.exe (committed, at the project root) ships.
+# PyInstaller output - build_exe.bat regenerates it for local use. The exe
+# is NOT committed: releases are built by GitHub Actions from the tagged
+# source (.github/workflows/release.yml) so the download is verifiably
+# built from this code, not from a developer machine.
 build/
 dist/
 *.spec
+GameScheduler.exe
