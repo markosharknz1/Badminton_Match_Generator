@@ -134,29 +134,31 @@ async function loadSettings() {
     $('#payments-location-id').value = s.square_location_id || '';
 }
 
-$('#cs-save').addEventListener('click', async () => {
+// Club details is split into small windows (name & icon / date format /
+// game defaults), each saving only its own fields - the PUT merges, so a
+// partial body never clobbers the rest.
+async function saveClubFields(fields, savedNoteSel) {
     try {
-        const saved = await api('/api/club-settings', {
-            method: 'PUT',
-            body: JSON.stringify({
-                club_name: $('#cs-name').value.trim(),
-                date_format: $('#cs-date-format').value,
-                default_game_minutes: Number($('#cs-game').value),
-                default_break_minutes: Number($('#cs-break').value),
-                square_enabled: $('#cs-square').checked,
-                gender_aware_pairing: $('#cs-gender-aware').checked,
-            }),
-        });
+        const saved = await api('/api/club-settings', { method: 'PUT', body: JSON.stringify(fields) });
         $('#club-name').textContent = saved.club_name;
         setDateFormat(saved.date_format);
         clubSettings = saved;
         renderOverview();
         showError('');
-        flashSaved('#cs-saved');
+        flashSaved(savedNoteSel);
     } catch (err) {
         showError(err.message);
     }
-});
+}
+
+$('#cs-name-save').addEventListener('click', () => saveClubFields({ club_name: $('#cs-name').value.trim() }, '#cs-name-saved'));
+$('#cs-date-save').addEventListener('click', () => saveClubFields({ date_format: $('#cs-date-format').value }, '#cs-date-saved'));
+$('#cs-defaults-save').addEventListener('click', () => saveClubFields({
+    default_game_minutes: Number($('#cs-game').value),
+    default_break_minutes: Number($('#cs-break').value),
+    square_enabled: $('#cs-square').checked,
+    gender_aware_pairing: $('#cs-gender-aware').checked,
+}, '#cs-defaults-saved'));
 
 // --- Club icon (favicon, header logo, desktop shortcut icon) ---
 // Resizes client-side to a square 256x256 PNG (cover-crop, matching the

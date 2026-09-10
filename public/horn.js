@@ -45,6 +45,19 @@ async function unlockHorn() {
     return ctx.state === 'running';
 }
 
+// Whether a game -> not-game transition deserves the horn. A round that
+// was left running when the app was closed gets force-ended by the
+// server's scheduler seconds after the next launch - a real transition,
+// but for a round that finished hours ago, and it made opening the app
+// sound the horn. Only a round whose scheduled end is recent (or still
+// in the future - staff ending it early by hand) counts as "just ended".
+const HORN_STALE_AFTER_MS = 90000;
+function roundJustEnded(previousEndsAt) {
+    if (!previousEndsAt) return true;
+    const endsAt = new Date(`${previousEndsAt.replace(' ', 'T')}Z`).getTime();
+    return Date.now() - endsAt < HORN_STALE_AFTER_MS;
+}
+
 // A stadium-style two-tone blast (a minor third, like an air horn), ~1.4s.
 function playHorn() {
     const ctx = hornContext();

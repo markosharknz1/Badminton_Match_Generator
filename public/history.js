@@ -203,26 +203,72 @@ $('#calendar-next').addEventListener('click', () => {
 });
 
 // --- One session's rounds ---
+// One row per round (number, start time, courts); clicking a row opens
+// that round's games on its own, with a link back to the list - every
+// round's games stacked on one page was too much to scan.
+let sessionRounds = [];
+
+function localClockTime(dtStr) {
+    return new Date(`${dtStr.replace(' ', 'T')}Z`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
 async function openSession(sessionId) {
     try {
         const data = await api(`/api/history/sessions/${sessionId}`);
         showView('session');
         $('#session-title').textContent = `${data.session.label || 'Session'} - ${formatDate(data.session.date)}`;
         mountTonightSummary($('#session-payment-summary'), sessionId);
-        const container = $('#session-rounds');
-        if (data.rounds.length === 0) {
-            container.innerHTML = '<p class="muted">No games were played in this session.</p>';
-            return;
-        }
-        container.innerHTML = data.rounds.map((round) => `
-            <div class="round-block">
-                <h3>Round ${round.round_number}</h3>
-                ${round.games.map((g) => renderGameRow(g)).join('')}
-            </div>
-        `).join('');
+        sessionRounds = data.rounds;
+        renderRoundList();
     } catch (err) {
         showError(err.message);
     }
+}
+
+function renderRoundList() {
+    const container = $('#session-rounds');
+    if (sessionRounds.length === 0) {
+        container.innerHTML = '<p class="muted">No games were played in this session.</p>';
+        return;
+    }
+    container.innerHTML = `
+        <table class="history-table">
+            <thead><tr><th>Round</th><th>Started</th><th class="num">Courts</th><th class="num">Players</th></tr></thead>
+            <tbody>
+                ${sessionRounds.map((r, i) => `
+                    <tr data-round-idx="${i}">
+                        <td><strong>Round ${r.round_number}</strong></td>
+                        <td>${localClockTime(r.started_at)}</td>
+                        <td class="num">${r.games.length}</td>
+                        <td class="num">${r.games.reduce((n, g) => n + g.players.length, 0)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    container.querySelectorAll('tr[data-round-idx]').forEach((tr) => {
+        tr.addEventListener('click', () => renderRoundDetail(Number(tr.dataset.roundIdx)));
+    });
+}
+
+function renderRoundDetail(idx) {
+    const round = sessionRounds[idx];
+    const container = $('#session-rounds');
+    container.innerHTML = `
+        <div class="breadcrumb"><a id="back-to-rounds">&larr; All rounds</a></div>
+        <div class="round-block">
+            <h3>Round ${round.round_number} <span class="muted round-started">started ${localClockTime(round.started_at)}</span></h3>
+            ${round.games.map((g) => renderGameRow(g)).join('')}
+        </div>
+        <div class="round-stepper" style="justify-content: space-between;">
+            <button class="small" id="round-detail-prev" ${idx === 0 ? 'disabled' : ''}>&lsaquo; Round ${idx > 0 ? sessionRounds[idx - 1].round_number : ''}</button>
+            <button class="small" id="round-detail-next" ${idx === sessionRounds.length - 1 ? 'disabled' : ''}>Round ${idx < sessionRounds.length - 1 ? sessionRounds[idx + 1].round_number : ''} &rsaquo;</button>
+        </div>
+    `;
+    $('#back-to-rounds').addEventListener('click', renderRoundList);
+    $('#round-detail-prev').addEventListener('click', () => renderRoundDetail(idx - 1));
+    $('#round-detail-next').addEventListener('click', () => renderRoundDetail(idx + 1));
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderGameRow(g) {

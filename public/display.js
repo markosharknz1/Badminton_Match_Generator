@@ -6,6 +6,7 @@
 let displayData = null;
 let countdownHandle = null;
 let lastPhase = null;
+let lastPhaseEndsAt = null;
 
 function $(sel) { return document.querySelector(sel); }
 
@@ -53,11 +54,14 @@ function render() {
     $('#idle-screen').style.display = 'none';
     $('#live-screen').style.display = 'flex';
 
-    // The round just ended (a pause is a freeze, not an end) - sound the
-    // horn. Only on a transition seen live, never on first load mid-round.
+    // The round just ended (a pause is a freeze, not an end; a stale round
+    // the scheduler is only now expiring doesn't count - see horn.js's
+    // roundJustEnded) - sound the horn. Only on a transition seen live,
+    // never on first load mid-round.
     const phase = d.session.current_phase;
-    if (lastPhase === 'game' && phase !== 'game' && phase !== 'paused') playHorn();
+    if (lastPhase === 'game' && phase !== 'game' && phase !== 'paused' && roundJustEnded(lastPhaseEndsAt)) playHorn();
     lastPhase = phase;
+    lastPhaseEndsAt = d.session.phase_ends_at;
 
     renderPhase();
     renderCourts();

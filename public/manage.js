@@ -291,17 +291,20 @@ async function init() {
 
 // --- Round status + controls ---
 let lastSeenPhase = null;
+let lastSeenPhaseEndsAt = null;
 
 async function loadRoundStatus() {
     roundStatus = await api(`/api/sessions/${openSession.id}/rounds/status`);
-    // A round just ended (not paused - that's a freeze, not an end). The
-    // Display screen owns the horn when it's open on this machine; see
-    // horn.js for the hand-off.
+    // A round just ended (not paused - that's a freeze, not an end, and
+    // not a stale round the scheduler is only now catching up on - see
+    // horn.js's roundJustEnded). The Display screen owns the horn when
+    // it's open on this machine; see horn.js for the hand-off.
     const phase = roundStatus.current_phase;
-    if (lastSeenPhase === 'game' && phase !== 'game' && phase !== 'paused' && !displayScreenHandlesHorn()) {
+    if (lastSeenPhase === 'game' && phase !== 'game' && phase !== 'paused' && roundJustEnded(lastSeenPhaseEndsAt) && !displayScreenHandlesHorn()) {
         playHorn();
     }
     lastSeenPhase = phase;
+    lastSeenPhaseEndsAt = roundStatus.phase_ends_at;
     renderRoundControls();
 }
 

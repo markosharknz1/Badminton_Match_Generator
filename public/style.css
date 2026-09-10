@@ -1076,6 +1076,17 @@ textarea {
 .overview-session .price-box div { display: flex; justify-content: space-between; gap: 12px; }
 .overview-links { display: flex; flex-direction: column; gap: 8px; }
 .overview-links button { text-align: left; }
+.settings-menu { max-width: 560px; }
+
+/* Every settings window opens the same way: a back link, then its title */
+.settings-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 8px;
+}
+.settings-head h2 { margin: 0; }
+.settings-head a.textlink { white-space: nowrap; }
 
 /* --- Payment cells / badges --- */
 .payment-cell { cursor: pointer; }
