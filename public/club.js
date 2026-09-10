@@ -57,15 +57,23 @@ function dollarsDisplay(cents) {
 }
 
 // --- Section switcher ---
+// Left sidebar picks the window; Club details expands into its own
+// sub-items while it (or one of them) is showing.
+const CLUB_DETAIL_SECTIONS = ['club-details', 'club-name', 'club-date', 'club-defaults', 'payment-categories'];
+
 function showSettingsSection(name) {
     document.querySelectorAll('[data-section]').forEach((el) => {
         el.style.display = el.dataset.section === name ? '' : 'none';
     });
-    if ($('#settings-section').value !== name) $('#settings-section').value = name;
+    const inClubDetails = CLUB_DETAIL_SECTIONS.includes(name);
+    $('#club-details-subnav').style.display = inClubDetails ? '' : 'none';
+    document.querySelectorAll('#settings-sidebar button[data-goto]').forEach((btn) => {
+        const active = btn.dataset.goto === name || (btn.dataset.goto === 'club-details' && inClubDetails);
+        btn.classList.toggle('active', active);
+    });
     window.scrollTo(0, 0);
 }
 
-$('#settings-section').addEventListener('change', () => showSettingsSection($('#settings-section').value));
 document.querySelectorAll('[data-goto]').forEach((btn) => btn.addEventListener('click', () => showSettingsSection(btn.dataset.goto)));
 showSettingsSection('overview');
 

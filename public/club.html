@@ -27,27 +27,26 @@
     </div>
 </header>
 
-<main>
+<main class="wide">
     <div id="error-banner" class="error-banner" style="display:none;"></div>
 
-    <section class="panel">
-        <div class="field">
-            <label>Section</label>
-            <select id="settings-section">
-                <option value="overview">Overview</option>
-                <option value="club-details">Club details</option>
-                <option value="club-name">Club details - Club name &amp; icon</option>
-                <option value="club-date">Club details - Date format</option>
-                <option value="club-defaults">Club details - Game defaults</option>
-                <option value="payment-categories">Club details - Payment categories</option>
-                <option value="templates">Session templates</option>
-                <option value="courts">Courts</option>
-                <option value="skill">Skill compatibility</option>
-                <option value="email">Email</option>
-                <option value="payments">Payments (Square)</option>
-            </select>
+    <div class="settings-layout">
+    <nav class="panel settings-sidebar" id="settings-sidebar">
+        <button type="button" data-goto="overview">Overview</button>
+        <button type="button" data-goto="templates">Session templates</button>
+        <button type="button" data-goto="courts">Courts</button>
+        <button type="button" data-goto="skill">Skill compatibility</button>
+        <button type="button" data-goto="email">Email</button>
+        <button type="button" data-goto="payments">Payments (Square)</button>
+        <button type="button" data-goto="club-details">Club details</button>
+        <div class="settings-subnav" id="club-details-subnav">
+            <button type="button" data-goto="club-name">Club name &amp; icon</button>
+            <button type="button" data-goto="club-date">Date format</button>
+            <button type="button" data-goto="club-defaults">Game defaults</button>
+            <button type="button" data-goto="payment-categories">Payment categories</button>
         </div>
-    </section>
+    </nav>
+    <div class="settings-content">
 
     <section class="panel" data-section="overview">
         <div class="overview-club">
@@ -57,27 +56,12 @@
                 <p class="muted" id="overview-club-meta" style="margin:2px 0 0;"></p>
             </div>
         </div>
-        <div class="overview-grid">
-            <div>
-                <h3>Normal sessions</h3>
-                <div id="overview-sessions"></div>
-            </div>
-            <div>
-                <h3>Settings</h3>
-                <div class="overview-links">
-                    <button type="button" data-goto="club-details">Club details</button>
-                    <button type="button" data-goto="templates">Session templates</button>
-                    <button type="button" data-goto="courts">Courts</button>
-                    <button type="button" data-goto="skill">Skill compatibility</button>
-                    <button type="button" data-goto="email">Email</button>
-                    <button type="button" data-goto="payments">Payments (Square)</button>
-                </div>
-            </div>
-        </div>
+        <h3>Normal sessions</h3>
+        <div id="overview-sessions"></div>
     </section>
 
     <section class="panel" data-section="club-details">
-        <div class="settings-head"><a class="textlink" data-goto="overview">&larr; Overview</a><h2>Club details</h2></div>
+        <div class="settings-head"><h2>Club details</h2></div>
         <div class="overview-links settings-menu">
             <button type="button" data-goto="club-name">Club name &amp; icon</button>
             <button type="button" data-goto="club-date">Date format</button>
@@ -87,7 +71,7 @@
     </section>
 
     <section class="panel" data-section="club-name">
-        <div class="settings-head"><a class="textlink" data-goto="club-details">&larr; Club details</a><h2>Club name &amp; icon</h2></div>
+        <div class="settings-head"><h2>Club name &amp; icon</h2></div>
         <div class="row">
             <div class="field">
                 <label>Club name</label>
@@ -108,7 +92,7 @@
     </section>
 
     <section class="panel" data-section="club-date">
-        <div class="settings-head"><a class="textlink" data-goto="club-details">&larr; Club details</a><h2>Date format</h2></div>
+        <div class="settings-head"><h2>Date format</h2></div>
         <div class="row">
             <div class="field">
                 <label>Date format</label>
@@ -124,7 +108,7 @@
     </section>
 
     <section class="panel" data-section="club-defaults">
-        <div class="settings-head"><a class="textlink" data-goto="club-details">&larr; Club details</a><h2>Game defaults</h2></div>
+        <div class="settings-head"><h2>Game defaults</h2></div>
         <div class="row">
             <div class="field">
                 <label>Default game length (minutes)</label>
@@ -153,7 +137,7 @@
     </section>
 
     <section class="panel" data-section="payment-categories">
-        <div class="settings-head"><a class="textlink" data-goto="club-details">&larr; Club details</a><h2>Payment categories</h2></div>
+        <div class="settings-head"><h2>Payment categories</h2></div>
         <p class="muted">Pricing tiers used across session templates (e.g. Member, Non-Member, Concession). Prices themselves are set per session template, not here - different session types can charge different amounts. Configuring these is safe even before turning payment tracking on (under Game defaults) - it only shows up at check-in once "Track payments" is ticked.</p>
         <table class="history-table" id="payment-categories-table">
             <thead><tr><th>Name</th><th class="num">Order</th><th class="num">Active</th><th></th></tr></thead>
@@ -166,13 +150,13 @@
     </section>
 
     <section class="panel" data-section="courts">
-        <div class="settings-head"><a class="textlink" data-goto="overview">&larr; Overview</a><h2>Courts</h2></div>
+        <div class="settings-head"><h2>Courts</h2></div>
         <p class="muted">Click a court number to toggle whether it exists at your venue. Numbers are the venue's shared convention (1-32) - only mark the courts your club actually uses.</p>
         <div class="court-roster" id="court-roster"></div>
     </section>
 
     <section class="panel" data-section="skill">
-        <div class="settings-head"><a class="textlink" data-goto="overview">&larr; Overview</a><h2>Skill compatibility</h2></div>
+        <div class="settings-head"><h2>Skill compatibility</h2></div>
         <p class="muted">Tick the grade combinations that can be matched together (as partners or opponents). The grid is symmetric - ticking A x C also ticks C x A.</p>
         <table class="matrix-table" id="matrix"></table>
         <br>
@@ -180,14 +164,14 @@
     </section>
 
     <section class="panel" data-section="templates">
-        <div class="settings-head"><a class="textlink" data-goto="overview">&larr; Overview</a><h2>Session templates</h2></div>
+        <div class="settings-head"><h2>Session templates</h2></div>
         <p class="muted">What "normally" happens on each day. Starting a session copies these defaults; changing a template never affects sessions already run.</p>
         <div id="template-list"></div>
         <button id="template-add">+ Add template</button>
     </section>
 
     <section class="panel" data-section="email">
-        <div class="settings-head"><a class="textlink" data-goto="overview">&larr; Overview</a><h2>Email</h2></div>
+        <div class="settings-head"><h2>Email</h2></div>
         <p class="muted">Connection details for sending the end-of-night summary. Staff click "Send summary" after finishing a session - nothing is ever sent automatically.</p>
         <div class="field">
             <label>Send via</label>
@@ -233,7 +217,7 @@
     </section>
 
     <section class="panel" data-section="payments">
-        <div class="settings-head"><a class="textlink" data-goto="overview">&larr; Overview</a><h2>Payments (Square)</h2></div>
+        <div class="settings-head"><h2>Payments (Square)</h2></div>
         <p class="muted">Connection details for processing payments via Square. Saved here for now - nothing in the app processes real payments yet, this just stores the credentials for when that's built.</p>
         <div class="row">
             <div class="field"><label>Access token</label><input type="password" id="payments-access-token" autocomplete="off"></div>
@@ -241,6 +225,9 @@
         </div>
         <button class="primary" id="payments-save">Save</button><span class="save-note" id="payments-saved"></span>
     </section>
+
+    </div>
+    </div>
 </main>
 
 <script src="/events.js"></script>

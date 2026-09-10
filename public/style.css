@@ -1078,15 +1078,49 @@ textarea {
 .overview-links button { text-align: left; }
 .settings-menu { max-width: 560px; }
 
-/* Every settings window opens the same way: a back link, then its title */
-.settings-head {
-    display: flex;
-    align-items: baseline;
-    gap: 14px;
-    margin-bottom: 8px;
+/* Settings: fixed left menu, one window at a time on the right */
+.settings-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 20px;
+    align-items: start;
 }
+@media (max-width: 800px) { .settings-layout { grid-template-columns: 1fr; } }
+.settings-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    position: sticky;
+    top: 16px;
+}
+.settings-sidebar button {
+    text-align: left;
+    background: transparent;
+    border-color: transparent;
+    font-weight: 500;
+    width: 100%;
+}
+.settings-sidebar button:hover { background: #f1f5f9; }
+.settings-sidebar button.active {
+    background: #eef2ff;
+    color: var(--primary);
+    font-weight: 700;
+}
+.settings-subnav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-left: 14px;
+    padding-left: 10px;
+    border-left: 2px solid var(--border);
+}
+.settings-subnav button { font-size: 0.9rem; }
+.settings-content { min-width: 0; }
+
+/* Every settings window opens the same way: its title at the top */
+.settings-head { margin-bottom: 8px; }
 .settings-head h2 { margin: 0; }
-.settings-head a.textlink { white-space: nowrap; }
 
 /* --- Payment cells / badges --- */
 .payment-cell { cursor: pointer; }
