@@ -1,5 +1,17 @@
 # Game Scheduler
 
+> **Is this safe to download?** Every release is built by GitHub Actions
+> straight from the source in this repository - nothing is built or uploaded
+> from a personal computer - and each
+> [release page](https://github.com/markosharknz1/Session_Organiser/releases/latest)
+> shows the exact commit it came from, the build log, SHA-256 checksums, and a
+> **VirusTotal scan** of the exe (current release:
+> [scan result](https://www.virustotal.com/gui/file-analysis/MjQxNTEyOWFiNjRiMDZmMTkwMTZhYzRkNzkzZmFhNzc6MTc4OTA1MDc3Mw==/detection)).
+> You can also drop any downloaded file, or this repository's address, into
+> [virustotal.com](https://www.virustotal.com/) yourself. The app keeps all
+> data on your own computer and makes no connections of its own - see
+> [SECURITY.md](SECURITY.md) for exactly what it does.
+
 A local desktop app for running a club's social session on courts - any sport
 played as doubles or singles with a rotation of players: check players in,
 take payments, put together the rounds (by hand or automatically, with skill
