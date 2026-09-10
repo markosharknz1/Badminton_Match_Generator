@@ -35,10 +35,11 @@ not the public internet.
 
 ## Verifying a download
 
-Every release is built by GitHub Actions from the tagged source in this
-repository - not on a personal machine. Each release page shows the commit it
-was built from, a link to the build log, SHA-256 checksums of the files, and a
-VirusTotal scan of the exe.
+There is no compiled program in a release. The ZIP is the source code in this
+repository, packaged by GitHub Actions straight from the tagged commit - not on
+a personal machine - and every file in it can be read. Each release page shows
+the commit, a link to the packaging log, a SHA-256 checksum, and a VirusTotal
+scan of the ZIP.
 
 To check a download on Windows:
 
@@ -48,12 +49,13 @@ Get-FileHash .\GameScheduler-v1.2.3.zip -Algorithm SHA256
 
 and compare against `SHA256SUMS.txt` on the release page.
 
-`GameScheduler.exe` is packaged with PyInstaller and is not code-signed, so
-Windows SmartScreen may show an "unknown publisher" prompt the first time, and
-some antivirus engines flag PyInstaller executables generically. If either
-worries you, build it yourself from source (see the README) - it's a one-line
-build - or run the app directly with `node server.js`, which needs no exe at
-all.
+The app runs on Node.js and opens in the Microsoft Edge (or Chrome) already on
+the computer, in a window of its own. `Game Scheduler.cmd` is a plain script
+you can open in Notepad; because it was downloaded from the internet, Windows
+shows an "Open File - Security Warning" the first time you run it. (Earlier
+releases shipped a packaged `.exe`, which antivirus heuristics sometimes
+flagged purely for being a self-extracting bundle - that's why there isn't
+one any more.)
 
 ## Reporting a problem
 

@@ -1,8 +1,10 @@
-# Builds every release on GitHub's own runners, straight from the tagged
-# source - so the GameScheduler.exe people download is demonstrably built
-# from the code in this repository, not from someone's laptop. The release
-# notes carry the commit it was built from, SHA-256 checksums, and (when a
-# VirusTotal API key is configured as the VT_API_KEY secret) a scan link.
+# Publishes every release on GitHub's own runners, straight from the tagged
+# source - the ZIP people download is demonstrably the code in this
+# repository. There is nothing to compile: the app is plain Node.js and
+# opens in the Edge/Chrome already on the machine (see launcher.js), so the
+# ZIP is simply `git archive` of the tag. The release notes carry the
+# commit, a SHA-256 checksum, and (when a VirusTotal API key is configured
+# as the VT_API_KEY secret) a scan link.
 #
 # To cut a release: bump package.json, write RELEASE_NOTES.md, then
 #   git tag -a v1.2.3 -m v1.2.3 && git push origin v1.2.3
@@ -17,7 +19,7 @@ permissions:
 
 jobs:
   release:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     env:
       VT_API_KEY: ${{ secrets.VT_API_KEY }}
     steps:
@@ -32,31 +34,16 @@ jobs:
           npm run autogen:test
           npm run report:test
           npm run roundbuilder:test
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install pyinstaller pywebview pythonnet pywin32
-      - name: Build GameScheduler.exe
-        run: pyinstaller --onefile --noconsole --name GameScheduler --icon app_icon.ico launcher.py
+          node --check launcher.js
 
       - name: Package release ZIP
-        shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
+          tag="${{ github.ref_name }}"
           # Everything tracked in git (node_modules is committed, so this is a
           # complete install; .gitattributes export-ignore trims dev-only files)
-          git archive --format=zip --prefix=GameScheduler/ -o source.zip HEAD
-          7z x source.zip -ostaging | Out-Null
-          Copy-Item dist\GameScheduler.exe staging\GameScheduler\GameScheduler.exe
-          7z a -tzip "GameScheduler-$tag.zip" .\staging\GameScheduler | Out-Null
-          $lines = @()
-          foreach ($f in @("GameScheduler-$tag.zip", "dist\GameScheduler.exe")) {
-            $h = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
-            $lines += "$h  $(Split-Path $f -Leaf)"
-          }
-          $lines | Set-Content SHA256SUMS.txt -Encoding ascii
-          Get-Content SHA256SUMS.txt
+          git archive --format=zip --prefix=GameScheduler/ -o "GameScheduler-$tag.zip" HEAD
+          sha256sum "GameScheduler-$tag.zip" > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: VirusTotal scan
         id: vt
@@ -64,37 +51,32 @@ jobs:
         uses: crazy-max/ghaction-virustotal@v4
         with:
           vt_api_key: ${{ env.VT_API_KEY }}
-          files: dist/GameScheduler.exe
+          files: GameScheduler-${{ github.ref_name }}.zip
 
       - name: Write release notes
-        shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          $body = @()
-          if (Test-Path RELEASE_NOTES.md) { $body += Get-Content RELEASE_NOTES.md -Raw }
-          $body += ""
-          $body += "## Verify this download"
-          $body += ""
-          $body += "Built by GitHub Actions from commit [``${{ github.sha }}``](https://github.com/${{ github.repository }}/commit/${{ github.sha }}) - see the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})."
-          $body += ""
-          $body += "SHA-256:"
-          $body += '```'
-          $body += (Get-Content SHA256SUMS.txt)
-          $body += '```'
-          $vt = "${{ steps.vt.outputs.analysis }}"
-          if ($vt) {
-            $url = ($vt -split ',')[0] -replace '^[^=]*=', ''
-            $body += ""
-            $body += "VirusTotal scan of GameScheduler.exe: $url"
-            $body += ""
-            $body += "_A handful of detections on a PyInstaller-built exe are a known false positive for that packaging tool - the point of the link is that you can see the result yourself, and re-scan the file you actually downloaded._"
-          }
-          $body -join "`n" | Set-Content release-body.md -Encoding utf8
+          {
+            if [ -f RELEASE_NOTES.md ]; then cat RELEASE_NOTES.md; fi
+            echo
+            echo "## Verify this download"
+            echo
+            echo "Built by GitHub Actions from commit [\`${{ github.sha }}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}) - see the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}). The ZIP is the tagged source exactly as you can read it here - there is no compiled executable in it."
+            echo
+            echo "SHA-256:"
+            echo '```'
+            cat SHA256SUMS.txt
+            echo '```'
+            vt="${{ steps.vt.outputs.analysis }}"
+            if [ -n "$vt" ]; then
+              url="${vt#*=}"; url="${url%%,*}"
+              echo
+              echo "VirusTotal scan of the ZIP: $url"
+            fi
+          } > release-body.md
 
       - name: Publish release
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "${{ github.ref_name }}"
-          gh release create $tag "GameScheduler-$tag.zip" SHA256SUMS.txt --title $tag --notes-file release-body.md
+          tag="${{ github.ref_name }}"
+          gh release create "$tag" "GameScheduler-$tag.zip" SHA256SUMS.txt --title "$tag" --notes-file release-body.md

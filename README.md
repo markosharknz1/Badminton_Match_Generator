@@ -1,16 +1,17 @@
 # Game Scheduler
 
-> **Is this safe to download?** Every release is built by GitHub Actions
-> straight from the source in this repository - nothing is built or uploaded
-> from a personal computer - and each
+> **Is this safe to download?** There is no compiled program in it at all.
+> The download is the source code you can read here, packaged by GitHub
+> Actions straight from the tagged commit - nothing is built or uploaded from
+> a personal computer. It runs on Node.js and opens in the Microsoft Edge (or
+> Chrome) already on your computer. Each
 > [release page](https://github.com/markosharknz1/Session_Organiser/releases/latest)
-> shows the exact commit it came from, the build log, SHA-256 checksums, and a
-> **VirusTotal scan** of the exe (current release:
-> [scan result](https://www.virustotal.com/gui/file-analysis/MjQxNTEyOWFiNjRiMDZmMTkwMTZhYzRkNzkzZmFhNzc6MTc4OTA1MDc3Mw==/detection)).
-> You can also drop any downloaded file, or this repository's address, into
-> [virustotal.com](https://www.virustotal.com/) yourself. The app keeps all
-> data on your own computer and makes no connections of its own - see
-> [SECURITY.md](SECURITY.md) for exactly what it does.
+> shows the exact commit, the packaging log, a SHA-256 checksum, and a
+> **VirusTotal scan** of the ZIP. You can also drop the download, or this
+> repository's address, into [virustotal.com](https://www.virustotal.com/)
+> yourself. The app keeps all data on your own computer and makes no
+> connections of its own - see [SECURITY.md](SECURITY.md) for exactly what it
+> does.
 
 A local desktop app for running a club's social session on courts - any sport
 played as doubles or singles with a rotation of players: check players in,
@@ -33,11 +34,14 @@ picture.
 1. Download `GameScheduler-vX.Y.Z.zip` from the
    [latest release](https://github.com/markosharknz1/Session_Organiser/releases/latest)
    and extract it anywhere (e.g. `C:\Club\Scheduler`).
-2. Double-click `GameScheduler.exe` inside that folder.
+2. Double-click **`Game Scheduler.cmd`** inside that folder.
 
 First run installs Node.js if the computer doesn't have it (via `winget`),
-creates an empty database next to the exe, and puts a shortcut on the desktop.
-The exe is only the launcher - keep it in the extracted folder.
+creates an empty database in the folder, and puts a "Game Scheduler" shortcut
+on the desktop. The app opens in its own window using the Microsoft Edge that
+comes with Windows (or Chrome), with no address bar or tabs. Because the
+launcher is a script downloaded from the internet, Windows may show an
+"Open File - Security Warning" the first time - click **Run**.
 
 **Upgrading:** extract the new ZIP to a new folder and copy `game_scheduler.db`
 across from the old one. That file is the club's entire roster and history.
@@ -59,25 +63,22 @@ Players can be bulk-imported from a CSV on the Player Database page - there's a
 
 ## Verifying a download
 
-Releases are built by GitHub Actions from the tagged source. Each release page
-lists the commit, the build log, SHA-256 checksums, and a VirusTotal scan.
-Details in [SECURITY.md](SECURITY.md#verifying-a-download).
+Releases are packaged by GitHub Actions from the tagged source. Each release
+page lists the commit, the packaging log, a SHA-256 checksum, and a VirusTotal
+scan. Details in [SECURITY.md](SECURITY.md#verifying-a-download).
 
 ## Running from source
 
 Requires [Node.js](https://nodejs.org) (LTS). No install step - dependencies
-are committed.
+are committed. Either double-click `Game Scheduler.cmd`, or run the server on
+its own and use any browser:
 
 ```
 node server.js
 ```
 
-then open http://localhost:4000. To build the Windows launcher yourself:
-
-```
-pip install pyinstaller pywebview pythonnet pywin32
-pyinstaller --onefile --noconsole --name GameScheduler --icon app_icon.ico launcher.py
-```
+then open http://localhost:4000. `Stop.bat` stops a server the launcher
+started.
 
 Tests: `npm run csv:test`, `npm run autogen:test`, `npm run report:test`,
 `npm run roundbuilder:test`.

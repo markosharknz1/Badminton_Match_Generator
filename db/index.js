@@ -344,15 +344,16 @@ are kept; older ones are deleted automatically.
 
 To restore a backup:
 1. Close Game Scheduler completely.
-2. Copy the backup file you want back to where GameScheduler.exe lives,
-   and rename it to "game_scheduler.db" (replacing the current one).
-3. Re-launch GameScheduler.exe.
+2. Copy the backup file you want back to the Game Scheduler folder (where
+   "Game Scheduler.cmd" lives), and rename it to "game_scheduler.db"
+   (replacing the current one).
+3. Start Game Scheduler again.
 
 To re-download the app itself:
   Repository:  https://github.com/markosharknz1/Session_Organiser
   Releases:    https://github.com/markosharknz1/Session_Organiser/releases
 
-Download the latest release's GameScheduler.exe, then restore a backup as
+Download the latest release ZIP, extract it, then restore a backup as
 above if you need to bring your club's data back.
 `;
 

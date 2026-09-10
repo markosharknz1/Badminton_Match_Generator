@@ -39,19 +39,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Inside the pywebview native app shell (launcher.py), route the Display nav
-// link through pywebview's own window-creation API instead of its plain
-// target="_blank". Left alone, WebView2 falls through to opening target="_blank"
-// links in an actual separate Edge browser window (address bar, tabs and
-// all) - exactly what the native app shell is meant to avoid. Regular
-// browser tabs (e.g. the installed PWA) never get window.pywebview, so this
-// is a no-op there and target="_blank" keeps working normally.
-window.addEventListener('pywebviewready', () => {
+// Inside the launcher's app window (launcher.js - a chromeless Edge/Chrome
+// window), a target="_blank" link would open the Display in a normal browser
+// window with an address bar and tabs, which is not what you want on a TV.
+// Ask the server to open it as a second app window instead. A regular
+// browser tab, or a device elsewhere on the wifi, gets a refusal and simply
+// keeps the ordinary link.
+document.addEventListener('DOMContentLoaded', () => {
     const displayLink = document.querySelector('a[href="/display.html"]');
-    if (displayLink && window.pywebview?.api?.open_display) {
-        displayLink.addEventListener('click', (event) => {
+    if (!displayLink) return;
+    fetch('/api/launcher').then((r) => r.json()).then(({ app_window }) => {
+        if (!app_window) return;
+        displayLink.addEventListener('click', async (event) => {
             event.preventDefault();
-            window.pywebview.api.open_display();
+            const res = await fetch('/api/launcher/open-display', { method: 'POST' }).catch(() => null);
+            if (!res || !res.ok) window.open('/display.html', '_blank');
         });
-    }
+    }).catch(() => {});
 });
