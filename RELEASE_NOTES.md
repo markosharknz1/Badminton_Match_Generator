@@ -1,26 +1,29 @@
-## Game Scheduler v1.0.10
+## Game Scheduler v1.0.11
 
 ### Installing
 
-1. Download **`GameScheduler-v1.0.10.zip`** below and extract it anywhere.
-2. Double-click **`GameScheduler.exe`** inside that folder.
+1. Download **`GameScheduler-v1.0.11.zip`** below and extract it anywhere - it's only the download.
+2. Double-click **`Game Scheduler.cmd`** inside the extracted folder. Windows may show an "Open File - Security Warning" because it's a script from the internet - click **Run**.
+3. A setup window opens: choose where to install (the default is `C:\Apps\Game_Scheduler` - anywhere is fine **except your Documents folder or anything OneDrive syncs**), tick whether you want a desktop shortcut, and click **Install and start**.
 
-The `.exe` is the launcher - keep it in the extracted folder with the files beside it.
+Setup copies the app to that folder, installs Node.js if the computer doesn't have it, creates the database, and opens the app. You can delete the downloaded folder afterwards; use the desktop shortcut from then on.
 
-**Upgrading:** extract the new ZIP to a new folder, then copy `game_scheduler.db` from the old folder into the new one before launching - that file is your whole roster and history.
+**Upgrading from v1.0.10 or earlier:** run the new `Game Scheduler.cmd` and choose the folder your existing copy is in - it's upgraded in place and your `game_scheduler.db` (the club's entire roster and history) is kept. If your existing copy is in your Documents folder, choose a new location and copy `game_scheduler.db` across from the old folder before launching.
 
 ### What's new
 
-- **Settings has a proper layout.** A menu down the left - Overview, Session templates, Courts, Skill compatibility, Email, Payments, Club details - with one window at a time on the right. Overview shows the club at a glance: each normal session with its day, time, mode, courts and prices. Club details expands into Club name & icon, Date format, Game defaults and Payment categories, each with its own Save.
-- **Session templates offer every court number (1-32)** - picking one not yet on the Courts page adds it there when you save.
-- **Rounds played, one round at a time.** On the Rounds page the window steps through rounds (Previous/Next) showing the round, when it started, and the players. In History a session's rounds are a table - round, start time, courts, players - and each row opens that round's games.
-- **"Games played today"** button in the round designer: everyone checked in, fewest games first, so you can see fairness at a glance while building a round.
-- **History filter and trends.** A "Show" dropdown for all sessions, ad-hoc only, or one session template (e.g. Tuesday morning). It filters the calendar, the list and the Excel export, and adds a trend panel - sessions, average players, average rounds, best night, and a players-per-session chart.
-- **CSV import template.** Player Database has a "Download CSV template" button with the exact columns and two example rows. The "Download backup" button now works inside the app window too.
-- **No horn on opening the app.** A round left running when the app was last closed no longer sounds the horn when the app starts and tidies it up.
-- **A brand-new install starts with no payment categories** - each club sets up its own.
+- **No more `.exe`.** Earlier releases shipped a packaged program that antivirus tools sometimes flagged purely for how it was packaged (7 engines on VirusTotal for v1.0.10, including Windows Defender). There is now no compiled program at all: the app is the readable source in the ZIP, run by Node.js, opening in the Microsoft Edge (or Chrome) already on the computer - in its own window, no address bar or tabs. The VirusTotal scan linked below is of this ZIP.
+- **A proper first-run setup** - install location, desktop shortcut, progress as it goes - and a brief start-up window on every later launch instead of console windows.
+- **Singles sessions** (e.g. squash). Each session template - and the start-session forms - now has a format, doubles or singles. Auto-generate builds singles rounds properly: two players a court, same-grade opponents where the numbers allow, no repeat matchups from recent rounds, and the avoid-pair and grade-compatibility rules still apply.
+- **Settings has a menu down the left** - Overview, Session templates, Courts, Skill compatibility, Email, Payments, Club details - with one window at a time on the right. The Overview shows each normal session with its day, time, mode, format, courts and prices.
+- **Session templates offer every court number** (1-32); picking one not yet on the Courts page adds it there.
+- **Rounds played, one round at a time.** On the Rounds page the window steps through rounds with the time each started; in History a session's rounds are a table you click into.
+- **"Games played today"** button in the round designer - everyone checked in, fewest games first.
+- **History filter and trends** - all sessions, ad-hoc only, or one session template - driving the calendar, the list, the Excel export, and a trend panel with a players-per-session chart.
+- **CSV import template** button on the Player Database page with the exact columns.
+- Fixes: no horn for a stale round when the app opens; the "Download backup" button works inside the app window.
+- The app is sport-neutral throughout, and a brand-new install starts with no payment categories - each club sets up its own.
 
 ### Notes
 
-- This is the first release built by GitHub Actions from the tagged source. The section below lists the exact commit, the build log, SHA-256 checksums, and a VirusTotal scan - see [SECURITY.md](https://github.com/markosharknz1/Session_Organiser/blob/master/SECURITY.md) for what the app does with your data.
 - Your roster and history live in one local file (`game_scheduler.db`) - not included in this release, but backed up automatically to `Documents\GameScheduler\backups` every time the app opens.
