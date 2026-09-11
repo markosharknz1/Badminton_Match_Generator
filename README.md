@@ -37,7 +37,7 @@ picture.
 2. Double-click **`Game Scheduler.cmd`** inside the extracted folder.
 
 A setup window appears the first time: choose where to install (the default
-is your per-user Programs folder; **not your Documents folder or anything
+is `C:\Apps\Game_Scheduler`; **not your Documents folder or anything
 OneDrive syncs** - the live database changes constantly and syncing corrupts
 it; backups go to `Documents\GameScheduler\backups` on their own), tick
 whether you want a desktop shortcut, and click **Install and start**. Setup

@@ -44,9 +44,10 @@ if (-not $FirstRun) {
     }
 }
 
-# Where the app should live. Per-user "Programs" folder by default: no admin
-# rights needed, and well away from Documents.
-$DefaultInstallDir = Join-Path $env:LOCALAPPDATA 'Programs\Game Scheduler'
+# Where the app should live by default: a short, obvious path on the system
+# drive, well away from Documents. Windows lets a standard user create a
+# folder at the drive root, so this needs no admin rights.
+$DefaultInstallDir = Join-Path $env:SystemDrive 'Apps\Game_Scheduler'
 if ($env:GAMESCHEDULER_SETUP_TARGET) { $DefaultInstallDir = $env:GAMESCHEDULER_SETUP_TARGET }  # test hook
 
 # Documents (and anything OneDrive syncs) is refused: the database and the
