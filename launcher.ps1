@@ -32,6 +32,7 @@ $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
 $form.MinimizeBox = $false
 $form.BackColor = [System.Drawing.Color]::White
+$form.TopMost = $true  # a short-lived start-up window - keep it above the folder it was launched from
 $iconPath = Join-Path $BaseDir 'app_icon.ico'
 if (Test-Path $iconPath) { $form.Icon = New-Object System.Drawing.Icon($iconPath) }
 
