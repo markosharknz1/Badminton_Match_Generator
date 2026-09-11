@@ -103,7 +103,7 @@ function renderOverview() {
             <div class="overview-session">
                 <div>
                     <strong>${esc(t.label)}</strong>
-                    <p class="muted" style="margin:4px 0 0;">${DAY_LABELS[t.day_of_week] || t.day_of_week} ${t.start_time}-${t.end_time} · ${modeLabel} mode<br>Courts ${courtNumbers}${t.default_max_capacity ? ` · guideline ${t.default_max_capacity} players` : ''}</p>
+                    <p class="muted" style="margin:4px 0 0;">${DAY_LABELS[t.day_of_week] || t.day_of_week} ${t.start_time}-${t.end_time} · ${modeLabel} mode · ${t.default_format === 'singles' ? 'Singles' : 'Doubles'}<br>Courts ${courtNumbers}${t.default_max_capacity ? ` · guideline ${t.default_max_capacity} players` : ''}</p>
                 </div>
                 ${priceBox}
             </div>
@@ -529,6 +529,13 @@ function templateEditHtml(t, idx) {
                     <p class="muted" style="font-size:0.78rem; margin: 4px 0 0;">${MODE_HELP}</p>
                 </div>
                 <div class="field">
+                    <label>Format</label>
+                    <select data-field="default_format">
+                        <option value="doubles" ${t.default_format !== 'singles' ? 'selected' : ''}>Doubles (4 a court)</option>
+                        <option value="singles" ${t.default_format === 'singles' ? 'selected' : ''}>Singles (2 a court, e.g. squash)</option>
+                    </select>
+                </div>
+                <div class="field">
                     <label>Rotation guideline (optional)</label>
                     <input type="number" min="0" data-field="default_max_capacity" value="${t.default_max_capacity ?? ''}" placeholder="No guideline">
                     <p class="muted" style="font-size:0.78rem; margin: 4px 0 0;">${ROTATION_GUIDELINE_HELP}</p>
@@ -592,7 +599,7 @@ function templateReadonlyHtml(t, idx) {
                     <button class="small" data-action="delete" data-idx="${idx}">Delete</button>
                 </span>
             </div>
-            <p class="muted">${DAY_LABELS[t.day_of_week] || t.day_of_week} ${t.start_time}-${t.end_time} &middot; ${modeLabel} mode &middot; Courts ${courtNumbers}${t.default_max_capacity ? ` &middot; guideline ${t.default_max_capacity} players` : ''}${t.default_game_minutes ? ` &middot; ${t.default_game_minutes}min games` : ''}${t.default_break_minutes ? ` &middot; ${t.default_break_minutes}min changeovers` : ''}</p>
+            <p class="muted">${DAY_LABELS[t.day_of_week] || t.day_of_week} ${t.start_time}-${t.end_time} &middot; ${modeLabel} mode &middot; ${t.default_format === 'singles' ? 'Singles' : 'Doubles'} &middot; Courts ${courtNumbers}${t.default_max_capacity ? ` &middot; guideline ${t.default_max_capacity} players` : ''}${t.default_game_minutes ? ` &middot; ${t.default_game_minutes}min games` : ''}${t.default_break_minutes ? ` &middot; ${t.default_break_minutes}min changeovers` : ''}</p>
             <p class="muted">Prices: ${priceSummary}</p>
         </div>
     `;
@@ -637,6 +644,7 @@ function readTemplateCard(idx) {
         start_time: value('start_time'),
         end_time: value('end_time'),
         default_mode: value('default_mode'),
+        default_format: value('default_format'),
         default_max_capacity: capacity === '' ? null : Number(capacity),
         default_game_minutes: gameMinutes === '' ? null : Number(gameMinutes),
         default_break_minutes: breakMinutes === '' ? null : Number(breakMinutes),

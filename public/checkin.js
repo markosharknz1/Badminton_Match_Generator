@@ -155,7 +155,7 @@ function renderTemplateChoice(template, date) {
     const body = $('#start-session-body');
     body.innerHTML = `
         <p><strong>${template.label}</strong> - ${template.start_time} to ${template.end_time}
-        (${template.courts.length} court${template.courts.length === 1 ? '' : 's'}, mode: ${template.default_mode}${template.default_max_capacity ? `, guideline: ${template.default_max_capacity} players` : ''})</p>
+        (${template.courts.length} court${template.courts.length === 1 ? '' : 's'}, ${template.default_format === 'singles' ? 'singles' : 'doubles'}, mode: ${template.default_mode}${template.default_max_capacity ? `, guideline: ${template.default_max_capacity} players` : ''})</p>
         <div class="template-choice">
             <button class="primary" id="same-as-usual">Same as usual</button>
             <button id="need-to-change">Need to change something</button>
@@ -193,6 +193,13 @@ async function renderChangeForm(template, date) {
                 </select>
             </div>
             <div class="field">
+                <label>Format</label>
+                <select id="cf-format">
+                    <option value="doubles" ${template.default_format !== 'singles' ? 'selected' : ''}>Doubles (4 a court)</option>
+                    <option value="singles" ${template.default_format === 'singles' ? 'selected' : ''}>Singles (2 a court, e.g. squash)</option>
+                </select>
+            </div>
+            <div class="field">
                 <label>Comfortable rotation guideline (optional)</label>
                 <input type="number" id="cf-capacity" value="${template.default_max_capacity ?? ''}" min="0">
             </div>
@@ -221,6 +228,7 @@ async function renderChangeForm(template, date) {
                     date,
                     overrides: {
                         mode: $('#cf-mode').value,
+                        format: $('#cf-format').value,
                         max_capacity: capacityVal === '' ? null : Number(capacityVal),
                         court_ids,
                     },
@@ -244,6 +252,10 @@ async function renderAdhocForm(date) {
                 <label>Mode</label>
                 <select id="ah-mode"><option value="manual">Manual</option><option value="auto">Auto</option><option value="social">Social (check-in + payment only, no rounds)</option></select>
             </div>
+            <div class="field">
+                <label>Format</label>
+                <select id="ah-format"><option value="doubles">Doubles (4 a court)</option><option value="singles">Singles (2 a court, e.g. squash)</option></select>
+            </div>
         </div>
         <div class="field">
             <label>Courts in use</label>
@@ -262,6 +274,7 @@ async function renderAdhocForm(date) {
                     date,
                     label: $('#ah-label').value,
                     mode: $('#ah-mode').value,
+                    format: $('#ah-format').value,
                     court_ids,
                 }),
             });

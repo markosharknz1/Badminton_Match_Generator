@@ -186,6 +186,17 @@ function ensureColumns(db) {
         db.run(`ALTER TABLE attendance ADD COLUMN payment_method TEXT CHECK (payment_method IN ('Cash','Card','Voucher'))`);
     }
 
+    // Doubles (4 a court) or singles (2 a court, e.g. squash) - per template
+    // and per session, so one club can run both kinds of night.
+    const templateColsNow = all(db, `PRAGMA table_info(session_templates)`).map((c) => c.name);
+    if (!templateColsNow.includes('default_format')) {
+        db.run(`ALTER TABLE session_templates ADD COLUMN default_format TEXT NOT NULL DEFAULT 'doubles' CHECK (default_format IN ('doubles','singles'))`);
+    }
+    const sessionColsNow = all(db, `PRAGMA table_info(sessions)`).map((c) => c.name);
+    if (!sessionColsNow.includes('format')) {
+        db.run(`ALTER TABLE sessions ADD COLUMN format TEXT NOT NULL DEFAULT 'doubles' CHECK (format IN ('doubles','singles'))`);
+    }
+
     const gamesCols = all(db, `PRAGMA table_info(games)`).map((c) => c.name);
     if (!gamesCols.includes('started_at')) {
         // When the game actually went on court - created_at is when it was

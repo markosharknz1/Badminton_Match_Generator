@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS session_templates (
     start_time TEXT NOT NULL,
     end_time TEXT NOT NULL,
     default_mode TEXT NOT NULL CHECK (default_mode IN ('auto','manual','social')),
+    -- doubles (4 a court) or singles (2 a court, e.g. squash)
+    default_format TEXT NOT NULL DEFAULT 'doubles' CHECK (default_format IN ('doubles','singles')),
     default_max_capacity INTEGER,
     -- Null falls back to club_settings.default_game_minutes/default_break_minutes.
     default_game_minutes INTEGER,
@@ -82,6 +84,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     location TEXT,
     status TEXT NOT NULL CHECK (status IN ('open','closed')) DEFAULT 'open',
     mode TEXT NOT NULL CHECK (mode IN ('auto','manual','social')),
+    format TEXT NOT NULL DEFAULT 'doubles' CHECK (format IN ('doubles','singles')),
     game_minutes INTEGER,
     break_minutes INTEGER,
     max_capacity INTEGER,

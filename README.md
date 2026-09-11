@@ -62,7 +62,9 @@ Open **Settings** (left menu):
   whether to track payments, and your payment categories (Member, Non-Member,
   Concession, ...). A fresh install has no categories; add your own.
 - **Courts** - which court numbers the venue has.
-- **Session templates** - your regular nights: day, time, mode, courts, prices.
+- **Session templates** - your regular nights: day, time, mode, format
+  (doubles, or singles for a sport like squash - auto-generated rounds follow
+  it), courts, prices.
 - **Email** (optional) - SMTP2Go, Mailgun or Gmail for the end-of-night
   summary.
 

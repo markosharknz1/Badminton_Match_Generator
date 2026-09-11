@@ -7,6 +7,7 @@ const router = express.Router();
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MODES = ['auto', 'manual', 'social'];
+const FORMATS = ['doubles', 'singles'];
 
 function dayOfWeekFor(dateStr) {
     const d = new Date(`${dateStr}T00:00:00`);
@@ -87,12 +88,14 @@ router.post('/', (req, res) => {
     if (!b.start_time) errors.push('start_time is required');
     if (!b.end_time) errors.push('end_time is required');
     if (!b.default_mode || !MODES.includes(b.default_mode)) errors.push(`default_mode must be one of ${MODES.join(', ')}`);
+    const defaultFormat = b.default_format ?? 'doubles';
+    if (!FORMATS.includes(defaultFormat)) errors.push(`default_format must be one of ${FORMATS.join(', ')}`);
     if (errors.length) return res.status(400).json({ errors });
     try {
         const id = store.insert(
-            `INSERT INTO session_templates (label, day_of_week, start_time, end_time, default_mode, default_max_capacity, default_game_minutes, default_break_minutes)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [b.label, b.day_of_week, b.start_time, b.end_time, b.default_mode, b.default_max_capacity ?? null,
+            `INSERT INTO session_templates (label, day_of_week, start_time, end_time, default_mode, default_format, default_max_capacity, default_game_minutes, default_break_minutes)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [b.label, b.day_of_week, b.start_time, b.end_time, b.default_mode, defaultFormat, b.default_max_capacity ?? null,
                 b.default_game_minutes ?? null, b.default_break_minutes ?? null]
         );
         const courtIds = Array.isArray(b.court_ids) ? b.court_ids : [];
@@ -118,11 +121,12 @@ router.put('/:id', (req, res) => {
     const merged = { ...existing, ...req.body };
     if (!DAYS.includes(merged.day_of_week)) return res.status(400).json({ error: `day_of_week must be one of ${DAYS.join(', ')}` });
     if (!MODES.includes(merged.default_mode)) return res.status(400).json({ error: `default_mode must be one of ${MODES.join(', ')}` });
+    if (!FORMATS.includes(merged.default_format ?? 'doubles')) return res.status(400).json({ error: `default_format must be one of ${FORMATS.join(', ')}` });
     try {
         store.run(
-            `UPDATE session_templates SET label=?, day_of_week=?, start_time=?, end_time=?, default_mode=?, default_max_capacity=?, default_game_minutes=?, default_break_minutes=?
+            `UPDATE session_templates SET label=?, day_of_week=?, start_time=?, end_time=?, default_mode=?, default_format=?, default_max_capacity=?, default_game_minutes=?, default_break_minutes=?
              WHERE id=?`,
-            [merged.label, merged.day_of_week, merged.start_time, merged.end_time, merged.default_mode, merged.default_max_capacity,
+            [merged.label, merged.day_of_week, merged.start_time, merged.end_time, merged.default_mode, merged.default_format ?? 'doubles', merged.default_max_capacity,
                 merged.default_game_minutes ?? null, merged.default_break_minutes ?? null, req.params.id]
         );
         store.persist();

@@ -8,8 +8,10 @@
 // itself - manage.js calls these via the functions below) and via
 // require() in a Node test, hence the dual-export footer.
 
-function emptyCourtState() {
-    return { staged: null, draft: { format: 'doubles', side1: [], side2: [] }, editing: false };
+// defaultFormat: the session's format (doubles, or singles for e.g. squash)
+// - what a court starts as before anyone picks otherwise.
+function emptyCourtState(defaultFormat = 'doubles') {
+    return { staged: null, draft: { format: defaultFormat, side1: [], side2: [] }, editing: false };
 }
 
 function buildStagedIndex(serverStagedGames) {
@@ -39,7 +41,7 @@ function resolveTargetRound(clientBuildRound, roundStatus) {
 // wiping the others, and stops an unrelated SSE refresh from doing the same.
 // Switching to a different round always resets everything: an old round's
 // drafts are meaningless once the designer has moved on.
-function mergeBuilderState(prevState, serverStagedGames, sessionCourts, targetRound, prevTargetRound) {
+function mergeBuilderState(prevState, serverStagedGames, sessionCourts, targetRound, prevTargetRound, defaultFormat = 'doubles') {
     const stagedByCourtId = buildStagedIndex(serverStagedGames);
     const roundChanged = !prevState || prevTargetRound !== targetRound;
     const next = {};
@@ -65,7 +67,7 @@ function mergeBuilderState(prevState, serverStagedGames, sessionCourts, targetRo
             // No server record for this court - keep the unsaved local draft as-is.
             next[courtId] = prev;
         } else {
-            next[courtId] = emptyCourtState();
+            next[courtId] = emptyCourtState(defaultFormat);
         }
     }
 

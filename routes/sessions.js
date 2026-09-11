@@ -9,6 +9,7 @@ const router = express.Router();
 
 const STATUSES = ['open', 'closed'];
 const MODES = ['auto', 'manual', 'social'];
+const FORMATS = ['doubles', 'singles']; // 4 a court, or 2 a court (e.g. squash)
 const PHASES = ['idle', 'game', 'break', 'awaiting_lineup', 'paused'];
 
 function paymentRatesForSession(sessionId) {
@@ -103,6 +104,7 @@ router.post('/start', (req, res) => {
 
     const o = overrides || {};
     const mode = o.mode && MODES.includes(o.mode) ? o.mode : template.default_mode;
+    const format = o.format && FORMATS.includes(o.format) ? o.format : (template.default_format || 'doubles');
     const max_capacity = o.max_capacity !== undefined ? o.max_capacity : template.default_max_capacity;
     // Falls through to the template's own default when set, then further to
     // club_settings.default_game_minutes/break_minutes at round-start time
@@ -136,10 +138,10 @@ router.post('/start', (req, res) => {
 
     try {
         const sessionId = store.insert(
-            `INSERT INTO sessions (template_id, date, label, scheduled_start_time, scheduled_end_time, location, status, mode, game_minutes, break_minutes, max_capacity, current_phase)
-             VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, 'idle')`,
+            `INSERT INTO sessions (template_id, date, label, scheduled_start_time, scheduled_end_time, location, status, mode, format, game_minutes, break_minutes, max_capacity, current_phase)
+             VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, 'idle')`,
             [template_id, date, template.label, template.start_time, template.end_time, o.location ?? null,
-                mode, game_minutes, break_minutes, max_capacity]
+                mode, format, game_minutes, break_minutes, max_capacity]
         );
         for (const courtId of courtIds) {
             store.run('INSERT INTO session_courts (session_id, court_id, in_use) VALUES (?, ?, 1)', [sessionId, courtId]);
@@ -173,6 +175,8 @@ router.post('/', (req, res) => {
     const errors = [];
     if (!b.date) errors.push('date is required');
     if (!b.mode || !MODES.includes(b.mode)) errors.push(`mode must be one of ${MODES.join(', ')}`);
+    const format = b.format ?? 'doubles';
+    if (!FORMATS.includes(format)) errors.push(`format must be one of ${FORMATS.join(', ')}`);
     if (errors.length) return res.status(400).json({ errors });
     const willBeOpen = (b.status ?? 'open') === 'open';
     if (willBeOpen) {
@@ -183,10 +187,10 @@ router.post('/', (req, res) => {
     }
     try {
         const id = store.insert(
-            `INSERT INTO sessions (template_id, date, label, scheduled_start_time, scheduled_end_time, location, status, mode, game_minutes, break_minutes, max_capacity, current_phase)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO sessions (template_id, date, label, scheduled_start_time, scheduled_end_time, location, status, mode, format, game_minutes, break_minutes, max_capacity, current_phase)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [b.template_id ?? null, b.date, b.label ?? null, b.scheduled_start_time ?? null, b.scheduled_end_time ?? null,
-                b.location ?? null, b.status ?? 'open', b.mode, b.game_minutes ?? null, b.break_minutes ?? null,
+                b.location ?? null, b.status ?? 'open', b.mode, format, b.game_minutes ?? null, b.break_minutes ?? null,
                 b.max_capacity ?? null, b.current_phase ?? 'idle']
         );
         if (Array.isArray(b.court_ids)) {
@@ -241,6 +245,7 @@ router.put('/:id', (req, res) => {
     if (!STATUSES.includes(merged.status)) return res.status(400).json({ error: `status must be one of ${STATUSES.join(', ')}` });
     if (!MODES.includes(merged.mode)) return res.status(400).json({ error: `mode must be one of ${MODES.join(', ')}` });
     if (!PHASES.includes(merged.current_phase)) return res.status(400).json({ error: `current_phase must be one of ${PHASES.join(', ')}` });
+    if (!FORMATS.includes(merged.format ?? 'doubles')) return res.status(400).json({ error: `format must be one of ${FORMATS.join(', ')}` });
     if (merged.status === 'open' && existing.status !== 'open') {
         const alreadyOpen = store.queryOne(`SELECT id FROM sessions WHERE status = 'open' AND id != ?`, [req.params.id]);
         if (alreadyOpen) {
@@ -249,10 +254,10 @@ router.put('/:id', (req, res) => {
     }
     try {
         store.run(
-            `UPDATE sessions SET template_id=?, date=?, label=?, scheduled_start_time=?, scheduled_end_time=?, location=?, status=?, mode=?, game_minutes=?, break_minutes=?, max_capacity=?, current_phase=?, phase_started_at=?, phase_ends_at=?, notes=?
+            `UPDATE sessions SET template_id=?, date=?, label=?, scheduled_start_time=?, scheduled_end_time=?, location=?, status=?, mode=?, format=?, game_minutes=?, break_minutes=?, max_capacity=?, current_phase=?, phase_started_at=?, phase_ends_at=?, notes=?
              WHERE id=?`,
             [merged.template_id, merged.date, merged.label, merged.scheduled_start_time, merged.scheduled_end_time,
-                merged.location, merged.status, merged.mode, merged.game_minutes, merged.break_minutes, merged.max_capacity,
+                merged.location, merged.status, merged.mode, merged.format ?? 'doubles', merged.game_minutes, merged.break_minutes, merged.max_capacity,
                 merged.current_phase, merged.phase_started_at, merged.phase_ends_at, merged.notes ?? null, req.params.id]
         );
         store.persist();
