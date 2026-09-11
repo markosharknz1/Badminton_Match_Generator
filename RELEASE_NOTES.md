@@ -1,8 +1,8 @@
-## Game Scheduler v1.0.11
+## Game Scheduler v1.0.12
 
 ### Installing
 
-1. Download **`GameScheduler-v1.0.11.zip`** below and extract it anywhere - it's only the download.
+1. Download **`GameScheduler-v1.0.12.zip`** below and extract it anywhere - it's only the download.
 2. Double-click **`Game Scheduler.cmd`** inside the extracted folder. Windows may show an "Open File - Security Warning" because it's a script from the internet - click **Run**.
 3. A setup window opens: choose where to install (the default is `C:\Apps\Game_Scheduler` - anywhere is fine **except your Documents folder or anything OneDrive syncs**), tick whether you want a desktop shortcut, and click **Install and start**.
 
@@ -14,6 +14,7 @@ Setup copies the app to that folder, installs Node.js if the computer doesn't ha
 
 - **No more `.exe`.** Earlier releases shipped a packaged program that antivirus tools sometimes flagged purely for how it was packaged (7 engines on VirusTotal for v1.0.10, including Windows Defender). There is now no compiled program at all: the app is the readable source in the ZIP, run by Node.js, opening in the Microsoft Edge (or Chrome) already on the computer - in its own window, no address bar or tabs. The VirusTotal scan linked below is of this ZIP.
 - **A proper first-run setup** - install location, desktop shortcut, progress as it goes - and a brief start-up window on every later launch instead of console windows.
+- **v1.0.12 over v1.0.11:** the silent-launch helper was a Windows Script File (`.wsf`), which nine antivirus engines flagged as a generic "script loader" pattern. It's gone; the shortcut and launcher now use Windows' own `conhost --headless` instead. Nothing else changed.
 - **Singles sessions** (e.g. squash). Each session template - and the start-session forms - now has a format, doubles or singles. Auto-generate builds singles rounds properly: two players a court, same-grade opponents where the numbers allow, no repeat matchups from recent rounds, and the avoid-pair and grade-compatibility rules still apply.
 - **Settings has a menu down the left** - Overview, Session templates, Courts, Skill compatibility, Email, Payments, Club details - with one window at a time on the right. The Overview shows each normal session with its day, time, mode, format, courts and prices.
 - **Session templates offer every court number** (1-32); picking one not yet on the Courts page adds it there.

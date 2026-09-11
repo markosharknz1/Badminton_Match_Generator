@@ -23,4 +23,4 @@ jobs:
           node --check launcher.js
           node --check lib/appWindow.js
           node -e "require('./routes/launcher')"
-          test -f launcher.ps1 && test -f launcher-silent.wsf && test -f "Game Scheduler.cmd"
+          test -f launcher.ps1 && test -f "Game Scheduler.cmd"

@@ -1,6 +1,6 @@
-# Game Scheduler start-up window. Run hidden by "Game Scheduler.cmd" (first
-# run) or by the desktop shortcut (via launcher-silent.wsf, no console at
-# all).
+# Game Scheduler start-up window. Run hidden by "Game Scheduler.cmd" or by
+# the desktop shortcut - both via `conhost.exe --headless powershell.exe`,
+# which gives PowerShell no console window of its own (Windows 10 2004+).
 #
 # FIRST RUN (no .setup-complete marker beside the app): shows a small
 # installer-style window - what setup is about to do, a "create a desktop
@@ -29,6 +29,15 @@ function Log($message) {
     Add-Content -Path (Join-Path $LogDir 'run.log') -Value "$stamp  [startup] $message" -Encoding utf8
 }
 
+# How the app is started with no console window: conhost.exe --headless
+# hosts PowerShell without a window. Used for the desktop shortcut and for
+# re-launching an installed copy. (An earlier build used a .wsf script for
+# this - a Windows Script File that launches hidden PowerShell is exactly
+# what malware loaders look like, and 9 antivirus engines said so.)
+function HeadlessLauncherArgs($dir) {
+    return @('--headless', 'powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$(Join-Path $dir 'launcher.ps1')`"")
+}
+
 # A downloaded folder that setup installed FROM remembers where the app
 # went ("installed-to=<path>" in its marker). Running its .cmd again just
 # opens the installed copy instead of setting up a second one.
@@ -36,9 +45,9 @@ if (-not $FirstRun) {
     $marker = (Get-Content $MarkerPath -Raw -ErrorAction SilentlyContinue)
     if ($marker -match 'installed-to=(.+)') {
         $installed = $Matches[1].Trim()
-        if ($installed -ne $BaseDir -and (Test-Path (Join-Path $installed 'launcher-silent.wsf'))) {
+        if ($installed -ne $BaseDir -and (Test-Path (Join-Path $installed 'launcher.ps1'))) {
             Log "This folder was installed to $installed - starting that copy."
-            Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\wscript.exe') -ArgumentList @('//B', '//nologo', "`"$(Join-Path $installed 'launcher-silent.wsf')`"") -WorkingDirectory $installed
+            Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\conhost.exe') -ArgumentList (HeadlessLauncherArgs $installed) -WorkingDirectory $installed
             exit 0
         }
     }
@@ -358,8 +367,8 @@ if ($FirstRun -and $createShortcut) {
         $lnk = Join-Path $desktop 'Game Scheduler.lnk'
         if (-not (Test-Path $lnk)) {
             $s = $shell.CreateShortcut($lnk)
-            $s.TargetPath = Join-Path $env:SystemRoot 'System32\wscript.exe'
-            $s.Arguments = '//B //nologo "' + (Join-Path $AppDir 'launcher-silent.wsf') + '"'
+            $s.TargetPath = Join-Path $env:SystemRoot 'System32\conhost.exe'
+            $s.Arguments = (HeadlessLauncherArgs $AppDir) -join ' '
             $s.WorkingDirectory = $AppDir
             $s.IconLocation = (Join-Path $AppDir 'app_icon.ico')
             $s.Description = 'Game Scheduler'
