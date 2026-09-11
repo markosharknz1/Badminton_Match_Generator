@@ -74,38 +74,6 @@ function ensureDatabase() {
     }
 }
 
-// First-run convenience: a desktop shortcut with the app icon. It goes
-// through launcher-silent.wsf (Windows Script Host) rather than the .cmd,
-// so starting from the shortcut never shows a console window at all.
-// Best-effort - never stops the app from launching. Idempotent: never
-// overwrites one the user moved, renamed, or kept.
-function ensureDesktopShortcut() {
-    // PowerShell single-quoted literals: no escape processing except '' for
-    // a quote - the safe way to hand a Windows path to a script (a JSON-
-    // style "C:\\x" would reach PowerShell with the backslashes doubled).
-    const psq = (s) => `'${String(s).replace(/'/g, "''")}'`;
-    try {
-        const script = `
-            $shell = New-Object -ComObject WScript.Shell
-            $desktop = $shell.SpecialFolders('Desktop')
-            $lnk = Join-Path $desktop 'Game Scheduler.lnk'
-            if (Test-Path $lnk) { exit 0 }
-            $s = $shell.CreateShortcut($lnk)
-            $s.TargetPath = Join-Path $env:SystemRoot 'System32\\wscript.exe'
-            $s.Arguments = '//B //nologo "' + ${psq(path.join(BASE_DIR, 'launcher-silent.wsf'))} + '"'
-            $s.WorkingDirectory = ${psq(BASE_DIR)}
-            $s.IconLocation = ${psq(path.join(BASE_DIR, 'app_icon.ico'))}
-            $s.Description = 'Game Scheduler'
-            $s.Save()
-            Write-Output 'created'`;
-        const result = spawnSync('powershell', ['-NoProfile', '-Command', script], { encoding: 'utf8', windowsHide: true });
-        if ((result.stdout || '').includes('created')) log('Created desktop shortcut.');
-        else if (result.status !== 0 || result.stderr) log(`Could not create a desktop shortcut (non-fatal): ${(result.stderr || '').trim().slice(0, 300)}`);
-    } catch (err) {
-        log(`Could not create a desktop shortcut (non-fatal): ${err.message}`);
-    }
-}
-
 async function startServer() {
     if (await portOpen(PORT)) {
         log(`Server already running on port ${PORT} - reusing it.`);
@@ -154,7 +122,8 @@ async function main() {
     log('--- Game Scheduler launched ---');
     ensureAppFiles();
     ensureDatabase();
-    ensureDesktopShortcut();
+    // The desktop shortcut is offered (as a tickbox) by launcher.ps1's
+    // first-run setup window - not created silently here.
 
     const server = await startServer();
 
