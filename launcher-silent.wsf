@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Starts Game Scheduler with no console window at all. Used by the desktop
+     shortcut (wscript.exe //B launcher-silent.wsf): runs the start-up window
+     script hidden. Plain Windows Script Host JScript - readable, nothing
+     compiled. -->
+<job id="GameScheduler">
+<script language="JScript">
+var shell = new ActiveXObject("WScript.Shell");
+var fso = new ActiveXObject("Scripting.FileSystemObject");
+var here = fso.GetParentFolderName(WScript.ScriptFullName);
+shell.CurrentDirectory = here;
+shell.Run('powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + here + '\\launcher.ps1"', 0, false);
+</script>
+</job>

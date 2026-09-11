@@ -36,12 +36,13 @@ picture.
    and extract it anywhere (e.g. `C:\Club\Scheduler`).
 2. Double-click **`Game Scheduler.cmd`** inside that folder.
 
-First run installs Node.js if the computer doesn't have it (via `winget`),
-creates an empty database in the folder, and puts a "Game Scheduler" shortcut
-on the desktop. The app opens in its own window using the Microsoft Edge that
-comes with Windows (or Chrome), with no address bar or tabs. Because the
-launcher is a script downloaded from the internet, Windows may show an
-"Open File - Security Warning" the first time - click **Run**.
+A small start-up window shows what's happening: the first run installs
+Node.js if the computer doesn't have it (via `winget`), creates an empty
+database in the folder, and puts a "Game Scheduler" shortcut on the desktop -
+use that shortcut from then on. The app opens in its own window using the
+Microsoft Edge that comes with Windows (or Chrome), with no address bar or
+tabs. Because the launcher is a script downloaded from the internet, Windows
+may show an "Open File - Security Warning" the first time - click **Run**.
 
 **Upgrading:** extract the new ZIP to a new folder and copy `game_scheduler.db`
 across from the old one. That file is the club's entire roster and history.

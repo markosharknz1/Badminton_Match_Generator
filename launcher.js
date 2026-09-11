@@ -1,4 +1,5 @@
-// Game Scheduler launcher - started by "Game Scheduler.cmd".
+// Game Scheduler launcher - started by launcher.ps1 (the start-up window),
+// which "Game Scheduler.cmd" and the desktop shortcut both go through.
 //
 // Starts the server (server.js, unchanged), opens the app in a chromeless
 // Edge/Chrome app window, and stops the server when that window closes.
@@ -73,7 +74,9 @@ function ensureDatabase() {
     }
 }
 
-// First-run convenience: a desktop shortcut to the .cmd, with the app icon.
+// First-run convenience: a desktop shortcut with the app icon. It goes
+// through launcher-silent.wsf (Windows Script Host) rather than the .cmd,
+// so starting from the shortcut never shows a console window at all.
 // Best-effort - never stops the app from launching. Idempotent: never
 // overwrites one the user moved, renamed, or kept.
 function ensureDesktopShortcut() {
@@ -84,11 +87,11 @@ function ensureDesktopShortcut() {
             $lnk = Join-Path $desktop 'Game Scheduler.lnk'
             if (Test-Path $lnk) { exit 0 }
             $s = $shell.CreateShortcut($lnk)
-            $s.TargetPath = ${JSON.stringify(path.join(BASE_DIR, 'Game Scheduler.cmd'))}
+            $s.TargetPath = "$env:SystemRoot\\System32\\wscript.exe"
+            $s.Arguments = '//B //nologo ' + ${JSON.stringify(`"${path.join(BASE_DIR, 'launcher-silent.wsf')}"`)}
             $s.WorkingDirectory = ${JSON.stringify(BASE_DIR)}
             $s.IconLocation = ${JSON.stringify(path.join(BASE_DIR, 'app_icon.ico'))}
             $s.Description = 'Game Scheduler'
-            $s.WindowStyle = 7
             $s.Save()
             Write-Output 'created'`;
         const result = spawnSync('powershell', ['-NoProfile', '-Command', script], { encoding: 'utf8', windowsHide: true });
