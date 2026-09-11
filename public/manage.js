@@ -539,7 +539,7 @@ async function loadBuilderForRound(round) {
 
     const staged = await api(`/api/sessions/${openSession.id}/games?round_number=${buildRound}&status=staged`);
     if (mySeq !== builderRequestSeq) return; // a newer call started since - this response is stale, discard it entirely rather than merging
-    buildState = mergeBuilderState(buildState, staged, sessionCourts, buildRound, prevRound);
+    buildState = mergeBuilderState(buildState, staged, sessionCourts, buildRound, prevRound, openSession.format || 'doubles');
     lastLoadedRound = buildRound;
 
     // Who played the immediately preceding round, so the pool can surface
